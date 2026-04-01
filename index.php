@@ -3,6 +3,7 @@ session_start();
 include 'config.php';
 include 'functions/sanitasi.php';
 include 'functions/secure_query.php';
+include 'functions/redirect.php';
 include 'functions/auto-routing.php';
 include 'functions/auto-cek-login-html.php';
 ?>

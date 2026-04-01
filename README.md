@@ -51,7 +51,8 @@ php-native-action-based/
 │   ├── sanitasi.php            # Input sanitization
 │   ├── secure_query.php        # Prepared statement wrappers
 │   ├── generate_uuid.php       # UUID v4 generator
-│   ├── pagination.php          # Pagination dengan prepared statement
+│   ├── pagination.php          # Pagination helper (makePagination, showPagination)
+│   ├── redirect.php            # redirectWithMessage() dan showAlert()
 │   ├── upload_file.php         # File upload dengan kompresi otomatis
 │   ├── auto-routing.php        # Variable-based routing system
 │   ├── auto-cek-login-html.php # Auto-login check untuk HTML pages
@@ -472,13 +473,13 @@ $success = executeSecure($con,
 ### 🔹 Fungsi makePagination()
 
 ```php
-function makePagination($con, $query, $params = [], $types = '', $page = 1, $limit = 10)
+function makePagination($con, $query, $jumlahLimit = 10)
 ```
 
 **Return:**
 ```php
 [
-    'data' => mysqli_result,    // Result untuk di-fetch
+    'data' => array,            // Array associative hasil query
     'total_pages' => int,       // Total halaman
     'current_page' => int,      // Halaman saat ini
     'total_data' => int,        // Total data
@@ -491,53 +492,34 @@ function makePagination($con, $query, $params = [], $types = '', $page = 1, $lim
 **Contoh Penggunaan:**
 
 ```php
-// Tanpa parameter WHERE
-$page = $_GET['page'] ?? 1;
-$pagination = makePagination($con, 
-    "SELECT * FROM users ORDER BY created_at DESC", 
-    [], '', $page, 10
-);
-
-// Dengan parameter WHERE (prepared statement)
+// Pattern yang dipakai di aplikasi (sesuai pages/users/user-management.php)
 $search = isset($_GET['search']) ? sani($_GET['search']) : '';
 $whereClause = '';
-$params = [];
-$types = '';
 
 if (!empty($search)) {
-    $searchParam = '%' . $search . '%';
-    $whereClause = "WHERE fullname LIKE ? OR email LIKE ?";
-    $params = [$searchParam, $searchParam];
-    $types = 'ss';
+    $search = '%' . $search . '%';
+    $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
 }
 
-$query = "SELECT * FROM users $whereClause ORDER BY created_at DESC";
-$pagination = makePagination($con, $query, $params, $types, $page, 10);
+$query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
+$pagination = makePagination($con, $query, 10);
 
-// Tampilkan data
-if ($pagination['data'] && mysqli_num_rows($pagination['data']) > 0) {
-    while ($row = mysqli_fetch_assoc($pagination['data'])) {
-        echo $row['fullname'];
-    }
+// Tampilkan data (foreach karena data berupa array)
+foreach ($pagination['data'] as $row) {
+    echo $row['fullname'];
 }
 ```
 
 ### 🔹 Fungsi showPagination()
 
 ```php
-function showPagination($currentPage, $totalPages, $queryParams = [], $maxLinks = 5)
+function showPagination($totalPages, $currentPage = 1, $maxLinks = 5)
 ```
 
 **Contoh:**
 ```php
 // Tampilkan pagination
-if ($pagination['total_pages'] > 1) {
-    showPagination(
-        $pagination['current_page'], 
-        $pagination['total_pages'], 
-        ['hal' => 'users_user-management', 'search' => $search]
-    );
-}
+echo showPagination($pagination['total_pages'], $pagination['current_page']);
 ```
 
 **Fitur:**
@@ -545,7 +527,7 @@ if ($pagination['total_pages'] > 1) {
 - Ellipsis (...) untuk halaman tengah
 - First & Last page selalu tampil
 - Previous & Next buttons
-- Query params preserved (hal, search, dll)
+- Query params otomatis dipertahankan via `getCurrentUrlWithoutPage()`
 
 ---
 
@@ -707,26 +689,20 @@ $result = executeSecure($con,
     </form>
 
     <?php
-    // Pagination dengan search
+    // Pagination dengan search (sesuai implementasi aplikasi)
     $search = isset($_GET['search']) ? sani($_GET['search']) : '';
-    $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-    
     $whereClause = '';
-    $params = [];
-    $types = '';
-    
+
     if (!empty($search)) {
-        $searchParam = '%' . $search . '%';
-        $whereClause = "WHERE fullname LIKE ? OR email LIKE ?";
-        $params = [$searchParam, $searchParam];
-        $types = 'ss';
+        $search = '%' . $search . '%';
+        $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
     }
-    
-    $query = "SELECT * FROM users $whereClause ORDER BY created_at DESC";
-    $pagination = makePagination($con, $query, $params, $types, $page, 10);
-    
+
+    $query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
+    $pagination = makePagination($con, $query, 10);
+
     // Display data
-    while ($row = mysqli_fetch_assoc($pagination['data'])) {
+    foreach ($pagination['data'] as $row) {
         ?>
         <tr>
             <td><?= $row['fullname'] ?></td>
@@ -739,15 +715,9 @@ $result = executeSecure($con,
         </tr>
         <?php
     }
-    
+
     // Pagination links
-    if ($pagination['total_pages'] > 1) {
-        showPagination(
-            $pagination['current_page'], 
-            $pagination['total_pages'],
-            ['hal' => 'users_user-management', 'search' => $search]
-        );
-    }
+    echo showPagination($pagination['total_pages'], $pagination['current_page']);
     ?>
 </div>
 ```
@@ -1112,22 +1082,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 ### 🔹 Alert Messages
 
-**Set message di action:**
+**File:** `functions/redirect.php`
+
+**Set message + redirect di action (helper):**
 ```php
-$_SESSION['message'] = 'Data berhasil disimpan!';
-$_SESSION['message_type'] = 'success'; // success, error, warning, info
+redirectWithMessage('../?hal=users_user-management', 'Data berhasil disimpan!', 'success');
 ```
 
-**Display di view:**
+**Display di view (auto-handle session + auto-unset):**
 ```php
-<?php if (isset($_SESSION['message'])): ?>
-    <div class="alert alert-<?= $_SESSION['message_type'] == 'success' ? 'success' : 'danger' ?> alert-dismissible fade show">
-        <?= $_SESSION['message'] ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
-<?php endif; ?>
+echo showAlert();
 ```
+
+**Catatan:**
+- `showAlert()` tanpa parameter akan membaca `$_SESSION['message']` dan `$_SESSION['message_type']`.
+- Setelah alert dirender, session message langsung dihapus otomatis.
 
 ---
 

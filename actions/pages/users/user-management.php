@@ -9,15 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = sani($_POST['username']);
         $email = sani($_POST['email']);
         $password = sani($_POST['password']);
-        // $photo_profile = $_FILES['photo_profile'] ?? null;
+        $photo_profile = null;
 
-        $result = uploadFile($_FILES['photo_profile'], '../assets/images/photo_profile/', 5 * 1024 * 1024);
-
-        if ($result['success']) {
-            echo "Upload berhasil: " . $result['file_path'];
-            $photo_profile = str_replace('../', '', $result['file_path']);
-        } else {
-            echo "Upload gagal: " . $result['message'];
+        if (isset($_FILES['photo_profile']) && $_FILES['photo_profile']['error'] === UPLOAD_ERR_OK && !empty($_FILES['photo_profile']['name'])) {
+            $result = uploadFile($_FILES['photo_profile'], '../assets/images/photo_profile/', 5 * 1024 * 1024);
+            if ($result['success']) {
+                $photo_profile = str_replace('../', '', $result['file_path']);
+            } else {
+                redirectWithMessage('../?hal=users_user-management', 'Upload gagal: ' . $result['message'], 'error');
+            }
         }
 
         $query = "INSERT INTO users (id, fullname, username, email, password, photo_profile) VALUES (?, ?, ?, ?, ?, ?)";
@@ -25,15 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $types = 'ssssss';
         $insertResult = executeSecure($con, $query, $params, $types);
 
-        $_SESSION['message'] = 'Data berhasil ditambahkan!';
-        $_SESSION['message_type'] = 'success';
-        createLog($con, $_SESSION['admin']['email'], 'Successful user addition '.$fullname);
+        if ($insertResult) {
+            createLog($con, $_SESSION['admin']['email'], 'Successful user addition ' . $fullname);
+            redirectWithMessage('../?hal=users_user-management', 'Data berhasil ditambahkan!', 'success');
+        }
 
-        echo "
-            <script>
-                window.location.href = '../?hal=users_user-management';
-            </script>
-        ";
+        redirectWithMessage('../?hal=users_user-management', 'Gagal menambahkan data user.', 'error');
     }
 
     if (isset($_POST['updateUser'])) {
@@ -82,43 +79,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $types = 'ssssss';
         $updateResult = executeSecure($con, $query, $params, $types);
 
-        $_SESSION['message'] = 'Data berhasil diperbarui!';
-        $_SESSION['message_type'] = 'success';
-        createLog($con, $_SESSION['admin']['email'], 'Successful user update '.$fullname);
-        echo "
-            <script>
-                window.location.href = '../?hal=users_user-management';
-            </script>
-        ";
+        if ($updateResult) {
+            createLog($con, $_SESSION['admin']['email'], 'Successful user update ' . $fullname);
+            redirectWithMessage('../?hal=users_user-management', 'Data berhasil diperbarui!', 'success');
+        }
+
+        redirectWithMessage('../?hal=users_user-management', 'Gagal memperbarui data user.', 'error');
     }
     exit;
 } elseif (isset($_GET['deleteUser'])) {
     $id = sani($_GET['deleteUser']);
 
     // Dapatkan data user untuk menghapus foto profile
-    $resultGetUser = querySecure($con, "SELECT photo_profile FROM users WHERE id = ?", [$id], 's');
+    $resultGetUser = querySecure($con, "SELECT fullname, photo_profile FROM users WHERE id = ?", [$id], 's');
     $user = mysqli_fetch_assoc($resultGetUser);
     $photo_profile = $user['photo_profile'];
 
     // Hapus data user
     $deleteResult = executeSecure($con, "DELETE FROM users WHERE id = ?", [$id], 's');
 
-    createLog($con, $_SESSION['admin']['email'], 'Successful user deletion id '.$user['fullname']);
-    // Hapus foto profile jika ada
-    if (!empty($photo_profile) && file_exists('../' . $photo_profile)) {
-        unlink('../' . $photo_profile);
+    if ($deleteResult) {
+        createLog($con, $_SESSION['admin']['email'], 'Successful user deletion ' . $user['fullname']);
+        if (!empty($photo_profile) && file_exists('../' . $photo_profile)) {
+            unlink('../' . $photo_profile);
+        }
+        redirectWithMessage('../?hal=users_user-management', 'User berhasil dihapus!', 'success');
     }
-    $_SESSION['message'] = 'User berhasil dihapus!';
-    $_SESSION['message_type'] = 'success';
-   
-    echo "
-            <script>
-                window.location.href = '../?hal=users_user-management';
-            </script>
-        ";
+
+    redirectWithMessage('../?hal=users_user-management', 'Gagal menghapus user.', 'error');
     exit;
 } else {
     // If accessed directly, redirect to homepage
-    header('Location: ../../index.php');
-    exit;
+    redirectWithMessage('../../index.php', 'Akses tidak valid.', 'error');
 }

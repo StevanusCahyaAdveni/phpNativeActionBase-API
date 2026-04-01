@@ -1,6 +1,7 @@
 <div>
     <?php
     include 'functions/pagination.php';
+        echo showAlert();
     ?>
     <p class="m-0 p-0" align="right">
         <button type="button" class="btn mb-2 btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#staticBackdrop">

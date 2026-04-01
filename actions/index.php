@@ -6,6 +6,7 @@ include '../config.php';
 include '../functions/secure_query.php';
 include '../functions/sanitasi.php';
 include '../functions/generate_uuid.php';
+include '../functions/redirect.php';
 include '../functions/log-sistem.php';
 
 // Check if need auto-login via API

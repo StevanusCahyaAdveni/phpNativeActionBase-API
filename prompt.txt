@@ -36,6 +36,7 @@ Root/
 │   ├── secure_query.php      # querySecure(), executeSecure()
 │   ├── generate_uuid.php     # generate_uuid()
 │   ├── pagination.php        # makePagination(), showPagination()
+│   ├── redirect.php          # redirectWithMessage(), showAlert()
 │   ├── upload_file.php       # uploadFile() dengan kompresi
 │   ├── auto-routing.php      # Variable-based routing system
 │   ├── auto-cek-login-html.php   # Auto-login check untuk HTML pages
@@ -291,32 +292,21 @@ CREATE TABLE users (
 <?php
 // Get search parameter
 $search = isset($_GET['search']) ? sani($_GET['search']) : '';
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Build query dengan prepared statement
+// Build query (pattern aktual di pages/users/user-management.php)
 $whereClause = '';
-$params = [];
-$types = '';
 
 if (!empty($search)) {
-    $searchParam = '%' . $search . '%';
-    $whereClause = "WHERE name LIKE ? OR email LIKE ?";
-    $params = [$searchParam, $searchParam];
-    $types = 'ss';
+    $search = '%' . $search . '%';
+    $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
 }
 
-$query = "SELECT * FROM users $whereClause ORDER BY created_at DESC";
-$pagination = makePagination($con, $query, $params, $types, $page, 10);
+$query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
+$pagination = makePagination($con, $query, 10);
 ?>
 
 <!-- Alert messages -->
-<?php if (isset($_SESSION['message'])): ?>
-    <div class="alert alert-<?= $_SESSION['message_type'] == 'success' ? 'success' : 'danger' ?> alert-dismissible fade show">
-        <?= $_SESSION['message'] ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
-<?php endif; ?>
+<?= showAlert(); ?>
 
 <!-- Button add new -->
 <button data-bs-toggle="modal" data-bs-target="#addModal">Add New</button>
@@ -330,7 +320,7 @@ $pagination = makePagination($con, $query, $params, $types, $page, 10);
 
 <!-- Data table -->
 <table>
-    <?php while ($row = mysqli_fetch_assoc($pagination['data'])): ?>
+    <?php foreach ($pagination['data'] as $row): ?>
         <tr>
             <td><?= $row['name'] ?></td>
             <td>
@@ -343,10 +333,7 @@ $pagination = makePagination($con, $query, $params, $types, $page, 10);
 </table>
 
 <!-- Pagination -->
-<?php if ($pagination['total_pages'] > 1): ?>
-    <?php showPagination($pagination['current_page'], $pagination['total_pages'], 
-        ['hal' => 'module_feature', 'search' => $search]); ?>
-<?php endif; ?>
+<?= showPagination($pagination['total_pages'], $pagination['current_page']); ?>
 
 <!-- Modal Add -->
 <div class="modal" id="addModal">
@@ -589,39 +576,43 @@ if (isset($_FILES['photo']) &&
 ```php
 // Get parameters
 $search = isset($_GET['search']) ? sani($_GET['search']) : '';
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
 // Build WHERE clause
 $whereClause = '';
-$params = [];
-$types = '';
 
 if (!empty($search)) {
-    $searchParam = '%' . $search . '%';
-    $whereClause = "WHERE name LIKE ? OR email LIKE ?";
-    $params = [$searchParam, $searchParam];
-    $types = 'ss';
+    $search = '%' . $search . '%';
+    $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
 }
 
 // Build query
-$query = "SELECT * FROM users $whereClause ORDER BY created_at DESC";
+$query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
 
 // Get paginated data
-$pagination = makePagination($con, $query, $params, $types, $page, 10);
+$pagination = makePagination($con, $query, 10);
 
 // Display data
-while ($row = mysqli_fetch_assoc($pagination['data'])) {
+foreach ($pagination['data'] as $row) {
     // Display row
 }
 
 // Display pagination links
-if ($pagination['total_pages'] > 1) {
-    showPagination(
-        $pagination['current_page'], 
-        $pagination['total_pages'],
-        ['hal' => 'module_feature', 'search' => $search]  // Preserve query params
-    );
-}
+echo showPagination($pagination['total_pages'], $pagination['current_page']);
+```
+
+## 🔔 Redirect & Alert Pattern
+
+**ALWAYS gunakan helper di `functions/redirect.php`:**
+
+```php
+// Action handler: set message + redirect
+redirectWithMessage('../?hal=users_user-management', 'Data berhasil ditambahkan!', 'success');
+redirectWithMessage('../?hal=users_user-management', 'Terjadi kesalahan.', 'error');
+```
+
+```php
+// View file: tampilkan alert dari session (otomatis unset)
+echo showAlert();
 ```
 
 ---
@@ -655,12 +646,12 @@ php generate.php module_feature
 
 ### ✅ View File (pages/)
 - [ ] Add search form dengan parameter `hal`
-- [ ] Implement makePagination() dengan prepared statement
+- [ ] Implement makePagination() sesuai pattern real: `makePagination($con, $query, 10)`
 - [ ] Create modal add dengan action ke `actions/?hal=...`
 - [ ] Create modal edit dengan action ke `actions/?hal=...`
 - [ ] Add delete link ke `actions/?hal=...&delete=id`
-- [ ] Display alert message dari session
-- [ ] Use showPagination() untuk pagination links
+- [ ] Display alert dengan `showAlert()`
+- [ ] Use `showPagination($pagination['total_pages'], $pagination['current_page'])`
 
 ### ✅ Action File (actions/pages/)
 - [ ] Calculate correct relative path depth
@@ -820,13 +811,21 @@ function generateUuid()
 - Upload dengan auto-compression
 - Returns array with success/message/file_path
 
-### makePagination($con, $query, $params, $types, $page, $limit)
-- Database pagination dengan prepared statement
+### makePagination($con, $query, $jumlahLimit = 10)
+- Database pagination dengan signature aktual: `makePagination($con, $query, $jumlahLimit = 10)`
 - Returns array with data, total_pages, etc
 
-### showPagination($currentPage, $totalPages, $queryParams, $maxLinks)
+### showPagination($totalPages, $currentPage = 1, $maxLinks = 5)
 - Display Bootstrap pagination UI
-- Preserve query parameters
+- Signature aktual: `showPagination($totalPages, $currentPage = 1, $maxLinks = 5)`
+
+### redirectWithMessage($url, $message = '', $type = 'success')
+- Set `$_SESSION['message']` + `$_SESSION['message_type']`
+- Redirect menggunakan JavaScript ke URL tujuan
+
+### showAlert($message = null, $type = 'success')
+- Jika dipanggil tanpa parameter: ambil message dari session lalu auto-unset
+- Return HTML alert (`alert-success` / `alert-danger`)
 
 ---
 
