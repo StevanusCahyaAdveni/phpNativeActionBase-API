@@ -59,23 +59,7 @@ include 'functions/auto-cek-login-html.php';
         </div>
     </div>
 
-    <!-- Modal untuk menampilkan gambar -->
-    <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content modal-xl">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="imageModalLabel">Preview Image</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <img id="modalImage" src="" alt="Preview" style="max-width: 100%; height: auto;">
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-
+    <!-- Template Script -->
     <script src="assets/vendors/perfect-scrollbar/perfect-scrollbar.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
 
@@ -83,6 +67,8 @@ include 'functions/auto-cek-login-html.php';
     <script src="assets/js/pages/dashboard.js"></script>
 
     <script src="assets/js/main.js"></script>
+
+    <!-- Custom Framework -->
     <script src="assets/js/upImage.js"></script>
 </body>
 
