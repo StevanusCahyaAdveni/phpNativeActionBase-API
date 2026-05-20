@@ -10,6 +10,7 @@ Anda sedang bekerja dengan PHP native framework yang menggunakan:
 - **Session + localStorage hybrid auth**: Session untuk security, localStorage untuk convenience
 - **Modular auto-login**: Auto-login menggunakan API endpoint terpisah (loginauto.php)
 - **Variable-based routing**: Menggunakan variable $content untuk include pages
+- **Dynamic DB Configuration**: Deteksi URL otomatis ($fullUrl) untuk memisahkan koneksi database Lokal vs Server di config.php
 
 ---
 

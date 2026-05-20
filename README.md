@@ -7,22 +7,23 @@ Framework PHP native sederhana dengan sistem routing otomatis, autentikasi berba
 ## ✨ Update Terbaru (January 2026)
 
 ### 🆕 Fitur Baru
+- **Dynamic DB Configuration**: Koneksi database otomatis mendeteksi URL lokal vs server (`$fullUrl`) di `config.php`
 - **CRUD Generator Otomatis**: Generate SQL, Page, dan Action file secara otomatis dengan form builder
 - **Modular Auto-Login System**: Auto-login menggunakan API endpoint terpisah (loginauto.php)
 - **Variable-based Routing**: Routing menggunakan variable $content untuk include pages
-- **Image Preview Modal**: Klik gambar manapun untuk preview fullscreen
+- **Image Preview Modal**: Klik gambar manapun untuk preview fullscreen (HTML diinjeksi otomatis via JS)
 - **Session Admin Data**: Akses lengkap data user yang login melalui `$_SESSION['admin']`
 - **Dynamic Page Title**: Title browser menggunakan nama user yang sedang login
 - **Dynamic App Name**: Logo sidebar menggunakan variable $appName dari config
 
 ### 🔄 Perbaikan
+- **Image Preview Modal Refactoring**: Modal preview dipindahkan penuh ke `assets/js/upImage.js` dan diinjeksi secara dinamis ke DOM (tidak perlu lagi menuliskan modal HTML secara manual di `index.php`)
 - **Auto-Login Refactoring**: Dipisah menjadi 3 file modular (auto-cek-login-html.php, auto-cek-login-action.php, loginauto.php)
 - **Security Enhancement**: Auto-clear localStorage saat login gagal dengan flag $_SESSION['clear_remember']
 - **Self-Protection**: User tidak bisa delete akun sendiri di user management
 - **Routing System**: Perubahan dari function contenByRoute() ke variable $content
-- **Database Config**: Update default database name dan tambah $appName variable
+- **Database Config**: Migrasi kredensial ke variabel terpisah dan pendeteksian server otomatis berbasis `$fullUrl`
 - Login page redirect protection (tidak bisa akses jika sudah login)
-- Refactoring JavaScript untuk image preview (dipindah ke file terpisah)
 - Improved code organization dan struktur file
 
 ---
@@ -1028,54 +1029,81 @@ Product List - John Doe
 
 ### 🔹 Image Preview Modal
 
-Framework include modal otomatis untuk preview gambar. Semua tag `<img>` dapat diklik untuk memperbesar.
+Framework menyertakan fitur modal otomatis untuk mem-preview gambar. Semua tag `<img>` dalam halaman dapat diklik untuk memperbesar gambar tersebut dalam bentuk modal. 
+
+Modal ini **diinjeksi secara dinamis** oleh Javascript ke dalam DOM ketika dokumen selesai dimuat, sehingga Anda tidak perlu menuliskan kode HTML modal di halaman `index.php` secara manual.
 
 **File:** `assets/js/upImage.js`
 
 ```javascript
-function showImgLink(url) {
-    const modalImage = document.getElementById('modalImage');
-    modalImage.src = url;
-    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
-    imageModal.show();
+// Fungsi membuat HTML modal secara dinamis jika belum ada di DOM
+function injectImageModal() {
+  if (!document.getElementById("imageModal")) {
+    const modalHTML = `
+      <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content modal-xl">
+                  <div class="modal-header">
+                      <h5 class="modal-title" id="imageModalLabel">Preview Image</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body text-center">
+                      <img id="modalImage" src="" alt="Preview" style="max-width: 100%; height: auto;">
+                  </div>
+              </div>
+          </div>
+      </div>
+    `;
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = modalHTML.trim();
+    document.body.appendChild(tempDiv.firstChild);
+  }
 }
 
-// Auto-attach click event ke semua img (kecuali yang di modal)
-document.addEventListener('DOMContentLoaded', function() {
-    const allImages = document.querySelectorAll('img');
-    allImages.forEach(function(img) {
-        const isInsideModal = img.closest('#imageModal');
-        if (!isInsideModal) {
-            img.style.cursor = 'pointer';
-            img.addEventListener('click', function() {
-                const imgSrc = this.getAttribute('src');
-                if (imgSrc && imgSrc !== '') {
-                    showImgLink(imgSrc);
-                }
-            });
+// Fungsi untuk menampilkan gambar di modal
+function showImgLink(url) {
+  // Pastikan modal terinjeksi sebelum dibuka
+  injectImageModal();
+
+  const modalImage = document.getElementById("modalImage");
+  if (modalImage) {
+    modalImage.src = url;
+  }
+
+  const imageModal = new bootstrap.Modal(document.getElementById("imageModal"));
+  imageModal.show();
+}
+
+// Otomatis tambahkan event listener ke semua tag img kecuali yang ada di modal
+document.addEventListener("DOMContentLoaded", function () {
+  // Injeksi modal ke body saat DOM siap
+  injectImageModal();
+
+  const allImages = document.querySelectorAll("img");
+
+  allImages.forEach(function (img) {
+    // Cek apakah img berada di dalam modal
+    const isInsideModal = img.closest("#imageModal");
+
+    // Hanya tambahkan event jika TIDAK di dalam modal
+    if (!isInsideModal) {
+      // Tambahkan cursor pointer untuk indikasi bisa diklik
+      img.style.cursor = "pointer";
+
+      // Tambahkan event click
+      img.addEventListener("click", function () {
+        const imgSrc = this.getAttribute("src");
+        if (imgSrc && imgSrc !== "") {
+          showImgLink(imgSrc);
         }
-    });
+      });
+    }
+  });
 });
 ```
 
-**Modal HTML (di index.php):**
-```html
-<div class="modal fade" id="imageModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content modal-xl">
-            <div class="modal-header">
-                <h5 class="modal-title">Preview Image</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="modalImage" src="" alt="Preview" style="max-width: 100%; height: auto;">
-            </div>
-        </div>
-    </div>
-</div>
-```
-
-**Include di index.php:**
+**Cara Penggunaan (Include di index.php):**
+Cukup panggil file JavaScript di bagian bawah sebelum tag penutup `</body>`:
 ```html
 <script src="assets/js/upImage.js"></script>
 ```
@@ -1126,10 +1154,32 @@ CREATE TABLE `users` (
 ### 🔹 Database Config (config.php)
 
 ```php
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'project_php_action_based');  // Updated default name
+// Deteksi URL Lengkap
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? "https://" : "http://";
+$domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$fullUrl = $protocol . $domain . $requestUri;
+
+// Konfigurasi Database (Local vs Server)
+if (strpos($fullUrl, 'example.com') !== false) {
+    // Konfigurasi Server / Production (Ubah sesuai kredensial server Anda)
+    $dbHost = 'mysql.example.com';
+    $dbUser = 'prod_user';
+    $dbPass = 'prod_password';
+    $dbName = 'prod_database';
+} else {
+    // Konfigurasi Local / Development
+    $dbHost = 'localhost';
+    $dbUser = 'root';
+    $dbPass = '';
+    $dbName = 'project_php_action_based';
+}
+
+// Definisikan konstanta agar kompatibel dengan kode lain
+define('DB_HOST', $dbHost);
+define('DB_USER', $dbUser);
+define('DB_PASS', $dbPass);
+define('DB_NAME', $dbName);
 
 $con = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 mysqli_set_charset($con, "utf8mb4");
