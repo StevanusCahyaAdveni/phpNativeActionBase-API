@@ -5,11 +5,32 @@
  * File ini berisi konfigurasi database dan koneksi yang aman
  */
 
-// Konfigurasi Database
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'project_php_action_based');
+// Deteksi URL Lengkap
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? "https://" : "http://";
+$domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$fullUrl = $protocol . $domain . $requestUri;
+
+// Konfigurasi Database (Local vs Server)
+if (strpos($fullUrl, 'example.com') !== false) {
+    // Konfigurasi Server / Production (Ubah sesuai kredensial server Anda)
+    $dbHost = 'mysql.example.com';
+    $dbUser = 'prod_user';
+    $dbPass = 'prod_password';
+    $dbName = 'prod_database';
+} else {
+    // Konfigurasi Local / Development
+    $dbHost = 'localhost';
+    $dbUser = 'root';
+    $dbPass = '';
+    $dbName = 'project_php_action_based';
+}
+
+// Definisikan konstanta agar kompatibel dengan kode lain
+define('DB_HOST', $dbHost);
+define('DB_USER', $dbUser);
+define('DB_PASS', $dbPass);
+define('DB_NAME', $dbName);
 
 // Inisialisasi koneksi database
 $con = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
