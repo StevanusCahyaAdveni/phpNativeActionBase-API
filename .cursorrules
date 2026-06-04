@@ -4,13 +4,14 @@
 
 Anda sedang bekerja dengan PHP native framework yang menggunakan:
 - **Routing otomatis**: URL dengan underscore → file dengan slash (`users_user-management` → `pages/users/user-management.php`)
-- **Action-based pattern**: Setiap view punya mirror action handler di `actions/pages/`
-- **Security-first**: Semua query menggunakan prepared statements, semua input di-sanitasi
-- **UUID primary keys**: Tidak ada auto-increment integer, semua ID adalah UUID v4
+- **Action-based pattern**: Setiap view punya mirror action handler di `actions/pages/`. Action **TIDAK PERNAH DI-INCLUDE**, ia murni bekerja sebagai HTTP Endpoint yang di-HIT dari form HTML dan kemudian me-redirect kembali ke View.
+- **Security-first**: Semua query menggunakan prepared statements, semua input di-sanitasi, dan ada CSRF Auto-Injection via Output Buffering.
+- **UUID primary keys**: Tidak ada auto-increment integer, semua ID adalah UUID v4 (menggunakan `random_bytes()`).
 - **Session + localStorage hybrid auth**: Session untuk security, localStorage untuk convenience
 - **Modular auto-login**: Auto-login menggunakan API endpoint terpisah (loginauto.php)
 - **Variable-based routing**: Menggunakan variable $content untuk include pages
 - **Dynamic DB Configuration**: Deteksi URL otomatis ($fullUrl) untuk memisahkan koneksi database Lokal vs Server di config.php
+- **Database Migration**: Sistem eksekusi SQL otomatis via terminal (`php migrate.php` & `php generate.php -m`).
 
 ---
 
@@ -103,6 +104,9 @@ $content = 'pages/' . $hal . '.php';
 
 ### Struktur Mirror (View ↔ Action)
 
+**KONSEP KRITIS: VIEW VS ACTION**
+File Action (`actions/...`) **TIDAK PERNAH DI-INCLUDE** di dalam View (`pages/...`). Action bertindak murni sebagai URL Endpoint yang di-*hit* melalui *form submission* (`action="..."`) atau tautan GET. Setelah diproses, Action akan selalu mengembalikan pengguna ke View menggunakan *Redirect* (`header('Location: ...')`).
+
 **WAJIB mengikuti pattern ini:**
 ```
 View:   pages/users/user-management.php
@@ -121,9 +125,39 @@ Action: actions/pages/users/user-management.php
 
 ---
 
+## 🌐 REST API Hybrid Framework
+
+Framework ini mendukung Endpoint REST API yang berada di folder `api/endpoints/`. Router utamanya adalah `api/index.php`.
+
+**Aturan Penulisan API:**
+1. **Gunakan Helper Response:**
+   Selalu gunakan `apiResponseSuccess()` dan `apiResponseError()` dari `functions/api.php` untuk membalas request. Jangan gunakan `echo json_encode` secara manual.
+2. **Gunakan getApiInput():**
+   Untuk membaca *Body Request* (baik dari JSON maupun `multipart/form-data`), gunakan fungsi `getApiInput()` lalu sanitasi.
+   Contoh: `$input = sani(getApiInput());`
+3. **Validasi Error (400):**
+   Gunakan struktur array asosiatif jika ada validasi field.
+   Contoh:
+   ```php
+   apiResponseError('VALIDATION_ERROR', 'The given data was invalid.', [
+       'email' => ['The email field is required.']
+   ], 400);
+   ```
+4. **JWT Auth Otomatis:**
+   Endpoint yang memerlukan *login* tidak perlu mengecek token secara manual. Token akan otomatis dicek oleh `api/index.php`. Payload *user* yang sukses masuk bisa diambil dari `$GLOBALS['api_user']`.
+
+---
+
 ## 🔐 Security Patterns (MANDATORY)
 
-### 1. Input Sanitization
+### 1. CSRF Auto-Injection Protection
+
+**SELURUH FORM POST otomatis terlindungi.**
+Framework ini menggunakan **Output Buffering** (`ob_start()`) di `index.php`, `login.php`, dan `register.php` untuk otomatis mencari tag `<form method="POST">` dan menyuntikkan token `<input type="hidden" name="csrf_token">` ke dalamnya.
+- Anda **TIDAK PERLU** menambah token CSRF secara manual di HTML.
+- **Validasi Terpusat**: Setiap kali request POST ditembak ke `actions/index.php`, `actions/login.php`, atau `actions/register.php`, sistem akan langsung memvalidasi token CSRF. Jika gagal, akan di-redirect.
+
+### 2. Input Sanitization
 
 **SELALU gunakan sani() untuk SEMUA input:**
 ```php
@@ -812,8 +846,9 @@ function generateUuid()
 - Upload dengan auto-compression
 - Returns array with success/message/file_path
 
-### makePagination($con, $query, $jumlahLimit = 10)
-- Database pagination dengan signature aktual: `makePagination($con, $query, $jumlahLimit = 10)`
+### makePagination($con, $query, $params = [], $types = '', $jumlahLimit = 10)
+- Database pagination dengan signature aktual: `makePagination($con, $query, $params = [], $types = '', $jumlahLimit = 10)`
+- Gunakan `$params` dan `$types` untuk keamanan ekstra pada parameter pencarian (bind param otomatis limit/offset).
 - Returns array with data, total_pages, etc
 
 ### showPagination($totalPages, $currentPage = 1, $maxLinks = 5)

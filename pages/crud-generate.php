@@ -53,6 +53,14 @@
                     </label>
                 </div>
             </div>
+            <div class="col-4">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="has_api" id="has_api">
+                    <label class="form-check-label" for="has_api" style="font-size: 12px;">
+                        <i class="bi bi-braces"></i> REST API
+                    </label>
+                </div>
+            </div>
         </div>
         <div class="mt-3 text-end">
             <button type="button" class="btn btn-secondary btn-sm me-1" onclick="resetForm()">

@@ -1,3 +1,8 @@
+<?php 
+if(session_status() === PHP_SESSION_NONE) session_start();
+include 'functions/csrf.php'; 
+ob_start('csrf_auto_inject'); 
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -86,7 +91,6 @@
                     </div>
                     <div class="login-body">
                         <?php
-                        session_start();
 
                         // Redirect jika sudah login
                         if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {

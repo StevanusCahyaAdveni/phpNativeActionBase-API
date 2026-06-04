@@ -68,16 +68,19 @@
                     $no = 1;
                     // searching Mecanism
                     $whereClause = '';
-                    $whereValue = [];
+                    $params = [];
+                    $types = '';
 
-                    if (isset($_GET['search'])) {
+                    if (isset($_GET['search']) && trim($_GET['search']) !== '') {
                         $search = '%' . sani($_GET['search']) . '%';
-                        $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
+                        $whereClause = " AND (fullname LIKE ? OR username LIKE ? OR email LIKE ?)";
+                        $params = [$search, $search, $search];
+                        $types = 'sss';
                     }
 
                     $query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
 
-                    $pagination = makePagination($con,  $query, 10);
+                    $pagination = makePagination($con, $query, $params, $types, 10);
                     // End searching Mecanism
                     foreach ($pagination['data'] as $data) {
                     ?>

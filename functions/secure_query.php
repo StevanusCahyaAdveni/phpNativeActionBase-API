@@ -53,11 +53,12 @@ function executeSecure($con, $query, $params = [], $types = '')
 
     $success = mysqli_stmt_execute($stmt);
 
-    // Untuk INSERT, return last insert id
+    // Untuk INSERT, return last insert id jika menggunakan Auto Increment
+    // Jika menggunakan UUID (di mana last_insert_id = 0), kembalikan nilai true
     if ($success && stripos($query, 'INSERT') === 0) {
         $lastId = mysqli_insert_id($con);
         mysqli_stmt_close($stmt);
-        return $lastId;
+        return $lastId > 0 ? $lastId : true;
     }
 
     mysqli_stmt_close($stmt);

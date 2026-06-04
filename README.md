@@ -4,9 +4,16 @@ Framework PHP native sederhana dengan sistem routing otomatis, autentikasi berba
 
 ---
 
-## ✨ Update Terbaru (January 2026)
+## ✨ Update Terbaru
 
-### 🆕 Fitur Baru
+### 🚀 Core Upgrades & Security (Terbaru)
+- **CSRF Auto-Injection**: Perlindungan Cross-Site Request Forgery menyeluruh via *Output Buffering* tanpa perlu menambahkan token manual di tiap form HTML. Validasi dipusatkan di `actions/index.php`.
+- **Database Migration System**: Sistem eksekusi file SQL otomatis untuk CI/CD dengan tabel pencatat (`migrations`) menggunakan `php migrate.php`. Generate file migrasi dengan `php generate.php -m`.
+- **Cryptographically Secure UUID**: Peningkatan keamanan UUID v4 secara mutlak menggunakan fungsi `random_bytes()`.
+- **PDO-Style Pagination**: Fungsi `makePagination` sekarang didesain ulang agar menerima parameter `$params` dan `$types` (menggunakan *prepared statements*), sehingga query pencarian (Search) di paginasi 100% aman dari SQL Injection.
+- **DRY & Security Refactoring**: Fungsi `log-sistem.php` sekarang memanfaatkan `executeSecure()`. Sanitasi di `sanitasi.php` menggunakan `double_encode = false` agar lebih tangguh menangkal injeksi teks yang memuat entitas HTML.
+
+### 🆕 Fitur Baru (Versi Sebelumnya)
 - **Dynamic DB Configuration**: Koneksi database otomatis mendeteksi URL lokal vs server (`$fullUrl`) di `config.php`
 - **CRUD Generator Otomatis**: Generate SQL, Page, dan Action file secara otomatis dengan form builder
 - **Modular Auto-Login System**: Auto-login menggunakan API endpoint terpisah (loginauto.php)
@@ -362,6 +369,17 @@ function handleLogout(event) {
 
 ---
 
+### 🔹 Pemahaman Fundamental: View vs Action
+
+**KONSEP KRITIS:** File Action (`actions/...`) **TIDAK PERNAH DI-INCLUDE** di dalam View (`pages/...`). 
+Mereka berdua adalah entitas yang terpisah. 
+- **View** berfungsi menampilkan UI kepada pengguna. 
+- **Action** bertindak sebagai URL Endpoint (Controller) yang di-*hit* (ditembak) langsung melalui form `action="..."` atau tautan HTTP. Setelah aksi selesai memproses operasi database, Action WAJIB melempar *user* kembali ke halaman View menggunakan *Redirect* (`header('Location: ...')` atau `redirectWithMessage()`).
+
+**WAJIB mengikuti pattern ini:**
+
+---
+
 ## 🛡️ Security Functions
 
 ### 🔹 Input Sanitization
@@ -503,7 +521,7 @@ if (!empty($search)) {
 }
 
 $query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
-$pagination = makePagination($con, $query, 10);
+$pagination = makePagination($con, $query, $params, $types, 10);
 
 // Tampilkan data (foreach karena data berupa array)
 foreach ($pagination['data'] as $row) {
@@ -1306,6 +1324,89 @@ Edit `sidebar.php`:
 Edit files yang di-generate:
 - `pages/products/product-list.php` → View
 - `actions/pages/products/product-list.php` → Handler
+
+---
+
+## 🌐 REST API Hybrid Framework
+
+Framework ini sekarang mendukung arsitektur **Hybrid** (UI & REST API) menggunakan otentikasi **Custom JWT** (*Stateless*, menyerupai Laravel Sanctum).
+
+### 🔹 Struktur Endpoint
+*   **Base URL API:** `http://localhost/php-native-action-based/api/index.php?hal={endpoint_name}`
+*   **Format JSON Input:** Boleh menggunakan `application/json` atau `multipart/form-data` (untuk upload).
+
+### 🔹 Contoh Penggunaan (Hit API)
+
+#### 1. Dapatkan Token (Login)
+*   **Endpoint:** `?hal=auth`
+*   **Method:** `POST`
+*   **Payload (JSON):**
+    ```json
+    {
+      "email": "admin@example.com",
+      "password": "password"
+    }
+    ```
+*   **Response (Success 200):**
+    ```json
+    {
+      "success": true,
+      "message": "Authentication successful",
+      "data": {
+        "token": "eyJ0eXAiOiJKV1... (Custom JWT Token)",
+        "user": {
+          "id": "uuid-1234",
+          "email": "admin@example.com",
+          "fullname": "Admin"
+        }
+      }
+    }
+    ```
+
+#### 2. Ambil Semua Data User (GET)
+*   **Endpoint:** `?hal=users`
+*   **Method:** `GET`
+*   **Headers:** `Authorization: Bearer <Token_Dari_Login>`
+*   **Response (Success 200):**
+    ```json
+    {
+      "success": true,
+      "message": "List users",
+      "data": {
+        "data": [
+          { "id": "uuid-1234", "fullname": "Admin" }
+        ],
+        "total_pages": 1,
+        "current_page": 1,
+        "total_data": 1
+      }
+    }
+    ```
+
+#### 3. Tambah User dengan File Upload (POST)
+*   **Endpoint:** `?hal=users`
+*   **Method:** `POST`
+*   **Headers:** `Authorization: Bearer <Token_Dari_Login>`
+*   **Body Type:** `multipart/form-data`
+*   **Payload:**
+    *   `fullname`: John Doe
+    *   `username`: johndoe
+    *   `email`: john@example.com
+    *   `password`: secret123
+    *   `photo`: [Pilih File .jpg/.png]
+*   **Response (Error Validasi 400):**
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "The given data was invalid.",
+        "details": {
+          "email": ["The email field is required."]
+        }
+      }
+    }
+    ```
 
 ---
 

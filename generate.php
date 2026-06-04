@@ -64,27 +64,66 @@ function createActionFile($filePath, $fileName)
  * Created: {date}
  */
 
-session_start();
-include '../../functions/sanitasi.php';
-include '../../config.php';
-
 // Check if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Get form data
-    // $data = sani($_POST['field_name']);
     
-    // Process your logic here
+    // ========== CREATE ==========
+    if (isset($_POST['addData'])) {
+        // include '../functions/upload_file.php';
+        
+        $id = generate_uuid();
+        // $name = sani($_POST['name']);
+        
+        $query = "INSERT INTO table_name (id) VALUES (?)";
+        $params = [$id];
+        $types = 's';
+        $insertResult = executeSecure($con, $query, $params, $types);
+        
+        if ($insertResult) {
+            createLog($con, $_SESSION['admin']['email'], 'Successful data addition');
+            redirectWithMessage('../?hal={redirect}', 'Data berhasil ditambahkan!', 'success');
+        }
+        
+        redirectWithMessage('../?hal={redirect}', 'Gagal menambahkan data.', 'error');
+    }
     
-    // Redirect back with message
-    $_SESSION['message'] = 'Action completed successfully!';
-    $_SESSION['message_type'] = 'success';
+    // ========== UPDATE ==========
+    if (isset($_POST['updateData'])) {
+        // include '../functions/upload_file.php';
+        
+        $id = sani($_POST['id']);
+        // $name = sani($_POST['name']);
+        
+        $query = "UPDATE table_name SET col = ? WHERE id = ?";
+        $params = ['val', $id];
+        $types = 'ss';
+        $updateResult = executeSecure($con, $query, $params, $types);
+        
+        if ($updateResult) {
+            createLog($con, $_SESSION['admin']['email'], 'Successful data update');
+            redirectWithMessage('../?hal={redirect}', 'Data berhasil diperbarui!', 'success');
+        }
+        
+        redirectWithMessage('../?hal={redirect}', 'Gagal memperbarui data.', 'error');
+    }
+    exit;
+} 
+// ========== DELETE (GET) ==========
+elseif (isset($_GET['deleteData'])) {
+    $id = sani($_GET['deleteData']);
     
-    header('Location: ../../index.php?hal={redirect}');
+    $deleteResult = executeSecure($con, "DELETE FROM table_name WHERE id = ?", [$id], 's');
+    
+    if ($deleteResult) {
+        createLog($con, $_SESSION['admin']['email'], 'Successful data deletion');
+        redirectWithMessage('../?hal={redirect}', 'Data berhasil dihapus!', 'success');
+    }
+    
+    redirectWithMessage('../?hal={redirect}', 'Gagal menghapus data.', 'error');
     exit;
 } else {
     // If accessed directly, redirect to homepage
-    header('Location: ../../index.php');
-    exit;
+    redirectWithMessage('../../index.php', 'Akses tidak valid.', 'error');
 }
 PHP;
 
@@ -97,18 +136,61 @@ PHP;
     echo COLOR_GREEN . "✓ Action created: " . COLOR_RESET . $filePath . "\n";
 }
 
+function createMigrationFile($basePath, $tableName)
+{
+    $databaseDir = $basePath . '/database/';
+    createDirectory($databaseDir);
+    
+    $timestamp = date('YmdHis');
+    $sqlFileName = $timestamp . "-" . $tableName . ".sql";
+    $sqlPath = $databaseDir . $sqlFileName;
+    
+    $content = "-- Migration: $tableName\n";
+    $content .= "-- Created at: " . date('Y-m-d H:i:s') . "\n\n";
+    $content .= "CREATE TABLE IF NOT EXISTS `$tableName` (\n";
+    $content .= "  `id` VARCHAR(36) NOT NULL PRIMARY KEY,\n";
+    $content .= "  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n";
+    $content .= ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n";
+    
+    file_put_contents($sqlPath, $content);
+    echo COLOR_GREEN . "✓ Migration created: " . COLOR_RESET . $sqlPath . "\n";
+}
+
 // Main execution
-if ($argc < 2) {
+$isMigrationOnly = false;
+$fileName = '';
+
+if ($argc >= 2) {
+    if ($argv[1] === '-m') {
+        $isMigrationOnly = true;
+        if (isset($argv[2])) {
+            $fileName = $argv[2];
+        } else {
+            echo COLOR_RED . "Error: " . COLOR_RESET . "Please provide a table name for migration\n";
+            echo COLOR_YELLOW . "Usage: " . COLOR_RESET . "php generate.php -m table_name\n";
+            exit(1);
+        }
+    } else {
+        $fileName = $argv[1];
+    }
+} else {
     echo COLOR_RED . "Error: " . COLOR_RESET . "Please provide a file name\n";
-    echo COLOR_YELLOW . "Usage: " . COLOR_RESET . "php generate.php nama-file\n";
-    echo COLOR_YELLOW . "Example: " . COLOR_RESET . "php generate.php user/profile\n";
+    echo COLOR_YELLOW . "Usage: " . COLOR_RESET . "php generate.php nama-file ATAU php generate.php -m nama-table\n";
     exit(1);
 }
 
-$fileName = $argv[1];
+// $fileName is already correctly assigned based on the arguments
 $basePath = __DIR__;
 
 echo COLOR_BLUE . "\n=== PHP File Generator ===" . COLOR_RESET . "\n";
+
+if ($isMigrationOnly) {
+    echo "Generating migration for: " . COLOR_YELLOW . $fileName . COLOR_RESET . "\n\n";
+    createMigrationFile($basePath, $fileName);
+    echo "\n" . COLOR_GREEN . "✓ Migration generation completed!" . COLOR_RESET . "\n\n";
+    exit(0);
+}
+
 echo "Generating files for: " . COLOR_YELLOW . $fileName . COLOR_RESET . "\n\n";
 
 // Process pages folder

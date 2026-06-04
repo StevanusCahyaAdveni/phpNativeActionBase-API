@@ -12,6 +12,21 @@ include '../functions/log-sistem.php';
 // Check if need auto-login via API
 include '../functions/auto-cek-login-action.php';
 
+include '../functions/csrf.php';
+
+// Validasi CSRF Sentral untuk semua request POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Abaikan validasi khusus untuk loginauto.php jika itu POST dari fetch API, 
+    // tapi karena ini actions/index.php, kita periksa csrf_token.
+    $token = $_POST['csrf_token'] ?? '';
+    
+    if (!validate_csrf_token($token)) {
+        // Token tidak valid atau tidak ada
+        createLog($con, 'SYSTEM', 'Peringatan: Upaya CSRF dicegah dari IP ' . ($_SERVER['REMOTE_ADDR'] ?? 'Unknown'));
+        redirectWithMessage('../?hal=dashboard', 'Aksi dibatalkan: Token Keamanan (CSRF) tidak valid atau kadaluarsa. Silakan muat ulang halaman.', 'error');
+    }
+}
+
 $hal = 'dashboard';
 $textTitle = 'Dashboard';
 if (isset($_GET['hal'])) {

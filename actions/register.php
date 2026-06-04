@@ -13,8 +13,18 @@ include '../config.php';
 include '../functions/log-sistem.php';
 
 
+include '../functions/csrf.php';
+
 // Cek apakah form di-submit
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validasi CSRF
+    $token = $_POST['csrf_token'] ?? '';
+    if (!validate_csrf_token($token)) {
+        $_SESSION['message'] = 'Token keamanan tidak valid. Silakan muat ulang halaman dan coba lagi.';
+        $_SESSION['message_type'] = 'error';
+        header('Location: ../register.php');
+        exit;
+    }
 
     // Sanitasi input
     $fullname = sani($_POST['fullname']);

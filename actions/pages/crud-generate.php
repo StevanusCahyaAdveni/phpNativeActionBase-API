@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hasFileUpload = isset($_POST['has_file_upload']);
     $hasPassword = isset($_POST['has_password']);
     $hasTimestamps = isset($_POST['has_timestamps']);
+    $hasApi = isset($_POST['has_api']);
 
     // Validasi
     if (empty($direktori) || empty($tableName) || empty($columns)) {
@@ -598,6 +599,159 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         return $action;
     }
 
+    // Function to generate API
+    function generateApi($direktori, $tableName, $columns, $hasFileUpload, $hasPassword)
+    {
+        $parts = explode('/', $direktori);
+        $routeName = str_replace('/', '_', $direktori);
+
+        $api = "<?php\n";
+        $api .= "/**\n";
+        $api .= " * API Endpoint: $routeName\n";
+        $api .= " * Route: api/index.php?hal=$routeName\n";
+        $api .= " */\n\n";
+        
+        if ($hasFileUpload) {
+            $api .= "include_once '../functions/upload_file.php';\n\n";
+        }
+        
+        $api .= "\$method = \$_SERVER['REQUEST_METHOD'];\n\n";
+        $api .= "switch (\$method) {\n";
+        
+        // GET
+        $api .= "    case 'GET':\n";
+        $api .= "        if (isset(\$_GET['id'])) {\n";
+        $api .= "            \$id = sani(\$_GET['id']);\n";
+        $api .= "            \$res = querySecure(\$con, \"SELECT * FROM $tableName WHERE id = ?\", [\$id], 's');\n";
+        $api .= "            \$data = mysqli_fetch_assoc(\$res);\n";
+        $api .= "            if (\$data) apiResponseSuccess('Data found', \$data);\n";
+        $api .= "            else apiResponseError('NOT_FOUND', 'Data not found', null, 404);\n";
+        $api .= "        } else {\n";
+        $api .= "            \$search = sani(\$_GET['search'] ?? '');\n";
+        $api .= "            \$whereClause = \"\";\n";
+        $api .= "            \$params = [];\n";
+        $api .= "            \$types = \"\";\n";
+        $api .= "            if (!empty(\$search)) {\n";
+        $searchCols = [];
+        foreach ($columns as $column) {
+            $searchCols[] = "{$column['name']} LIKE ?";
+        }
+        $api .= "                \$whereClause = \" AND (" . implode(" OR ", $searchCols) . ")\";\n";
+        $api .= "                \$searchWildcard = '%' . \$search . '%';\n";
+        $api .= "                for(\$i=0; \$i<" . count($columns) . "; \$i++) {\n";
+        $api .= "                    \$params[] = \$searchWildcard;\n";
+        $api .= "                    \$types .= 's';\n";
+        $api .= "                }\n";
+        $api .= "            }\n";
+        $api .= "            \$limit = isset(\$_GET['limit']) ? (int) sani(\$_GET['limit']) : 10;\n";
+        if (isset($_POST['has_timestamps'])) {
+            $api .= "            \$query = \"SELECT * FROM $tableName WHERE 1 = 1 \" . \$whereClause . \" ORDER BY created_at DESC\";\n";
+        } else {
+            $api .= "            \$query = \"SELECT * FROM $tableName WHERE 1 = 1 \" . \$whereClause;\n";
+        }
+        $api .= "            \$pagination = makePagination(\$con, \$query, \$params, \$types, \$limit);\n";
+        $api .= "            apiResponseSuccess('List data', \$pagination);\n";
+        $api .= "        }\n";
+        $api .= "        break;\n\n";
+
+        // POST
+        $api .= "    case 'POST':\n";
+        $api .= "        \$input = sani(getApiInput());\n";
+        $api .= "        \$id = generate_uuid();\n";
+        
+        $insertCols = ['id'];
+        $insertVals = ['?'];
+        $insertParams = ['$id'];
+        $insertTypes = 's';
+        
+        foreach ($columns as $column) {
+            $api .= "        \${$column['name']} = \$input['{$column['name']}'] ?? '';\n";
+            $insertCols[] = $column['name'];
+            $insertVals[] = '?';
+            $insertParams[] = '$' . $column['name'];
+            $insertTypes .= 's';
+        }
+        
+        if ($hasPassword) {
+            $api .= "        \$password = \$input['password'] ?? '';\n";
+            $api .= "        \$hashedPassword = password_hash(\$password, PASSWORD_DEFAULT);\n";
+            $insertCols[] = 'password';
+            $insertVals[] = '?';
+            $insertParams[] = '$hashedPassword';
+            $insertTypes .= 's';
+        }
+        if ($hasFileUpload) {
+            $api .= "        \$photoPath = null;\n";
+            $api .= "        if (isset(\$_FILES['photo']) && \$_FILES['photo']['error'] === UPLOAD_ERR_OK) {\n";
+            $api .= "            \$uploadResult = uploadFile(\$_FILES['photo'], '../assets/images/photos/', 5 * 1024 * 1024);\n";
+            $api .= "            if (\$uploadResult['success']) {\n";
+            $api .= "                \$photoPath = str_replace('../', '', \$uploadResult['file_path']);\n";
+            $api .= "            } else {\n";
+            $api .= "                apiResponseError('UPLOAD_ERROR', \$uploadResult['message'], null, 400);\n";
+            $api .= "            }\n";
+            $api .= "        }\n";
+            
+            $insertCols[] = 'photo';
+            $insertVals[] = '?';
+            $insertParams[] = '$photoPath';
+            $insertTypes .= 's';
+        }
+        
+        $api .= "        \$result = executeSecure(\$con, \n";
+        $api .= "            \"INSERT INTO $tableName (" . implode(', ', $insertCols) . ") VALUES (" . implode(', ', $insertVals) . ")\",\n";
+        $api .= "            [" . implode(', ', $insertParams) . "],\n";
+        $api .= "            '$insertTypes'\n";
+        $api .= "        );\n";
+        $api .= "        if (\$result) apiResponseSuccess('Data created', ['id' => \$id], 201);\n";
+        $api .= "        else apiResponseError('INTERNAL_ERROR', 'Failed to create data', null, 500);\n";
+        $api .= "        break;\n\n";
+        
+        // PUT
+        $api .= "    case 'PUT':\n";
+        $api .= "        \$input = sani(getApiInput());\n";
+        $api .= "        \$id = \$input['id'] ?? '';\n";
+        $api .= "        if (empty(\$id)) apiResponseError('VALIDATION_ERROR', 'The given data was invalid.', ['id' => ['The id field is required.']], 400);\n";
+        
+        $updateSets = [];
+        $updateParams = [];
+        $updateTypes = '';
+        foreach ($columns as $column) {
+            $api .= "        \${$column['name']} = \$input['{$column['name']}'] ?? '';\n";
+            $updateSets[] = "{$column['name']} = ?";
+            $updateParams[] = '$' . $column['name'];
+            $updateTypes .= 's';
+        }
+        $updateParams[] = '$id';
+        $updateTypes .= 's';
+        
+        $api .= "        \$result = executeSecure(\$con, \n";
+        $api .= "            \"UPDATE $tableName SET " . implode(', ', $updateSets) . " WHERE id = ?\",\n";
+        $api .= "            [" . implode(', ', $updateParams) . "],\n";
+        $api .= "            '$updateTypes'\n";
+        $api .= "        );\n";
+        $api .= "        if (\$result) apiResponseSuccess('Data updated');\n";
+        $api .= "        else apiResponseError('INTERNAL_ERROR', 'Failed to update', null, 500);\n";
+        $api .= "        break;\n\n";
+
+        // DELETE
+        $api .= "    case 'DELETE':\n";
+        $api .= "        \$input = sani(getApiInput());\n";
+        $api .= "        \$id = \$input['id'] ?? (\$_GET['id'] ?? '');\n";
+        $api .= "        if (empty(\$id)) apiResponseError('VALIDATION_ERROR', 'The given data was invalid.', ['id' => ['The id field is required.']], 400);\n";
+        $api .= "        \$result = executeSecure(\$con, \"DELETE FROM $tableName WHERE id = ?\", [\$id], 's');\n";
+        $api .= "        if (\$result) apiResponseSuccess('Data deleted');\n";
+        $api .= "        else apiResponseError('INTERNAL_ERROR', 'Failed to delete', null, 500);\n";
+        $api .= "        break;\n\n";
+        
+        $api .= "    default:\n";
+        $api .= "        apiResponseError('METHOD_NOT_ALLOWED', 'Method not allowed', null, 405);\n";
+        $api .= "        break;\n";
+        $api .= "}\n";
+        $api .= "?>";
+        
+        return $api;
+    }
+
     // Generate SQL content
     $sqlContent = generateSQL($tableName, $columns, $hasPassword, $hasFileUpload, $hasTimestamps);
 
@@ -610,19 +764,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Create directories
     $rootPath = dirname(dirname(__DIR__));
     $databaseDir = $rootPath . "/database";
-
+    
     // Parse direktori untuk page path
     $parts = explode('/', $direktori);
     if (count($parts) > 1) {
         $pageDir = $rootPath . "/pages/" . $parts[0];
         $actionDir = $rootPath . "/actions/pages/" . $parts[0];
+        $apiDir = $rootPath . "/api/endpoints/" . $parts[0];
         $pageFile = $parts[1] . ".php";
         $actionFile = $parts[1] . ".php";
+        $apiFile = $parts[1] . ".php";
     } else {
         $pageDir = $rootPath . "/pages";
         $actionDir = $rootPath . "/actions/pages";
+        $apiDir = $rootPath . "/api/endpoints";
         $pageFile = $parts[0] . ".php";
         $actionFile = $parts[0] . ".php";
+        $apiFile = $parts[0] . ".php";
     }
 
     if (!is_dir($databaseDir)) {
@@ -634,11 +792,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!is_dir($actionDir)) {
         mkdir($actionDir, 0755, true);
     }
+    if ($hasApi && !is_dir($apiDir)) {
+        mkdir($apiDir, 0755, true);
+    }
 
-    // Generate filename: tableName_4RandomChars_Ymdhis.sql
-    $randomChars = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 4);
-    $timestamp = date('Ymdhis');
-    $sqlFileName = $tableName . "_" . $randomChars . "_" . $timestamp . ".sql";
+    // Generate filename: datetimePembuatan-namatable.sql
+    $timestamp = date('YmdHis');
+    $sqlFileName = $timestamp . "-" . $tableName . ".sql";
 
     // Write SQL file
     $sqlPath = $databaseDir . "/" . $sqlFileName;
@@ -651,8 +811,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Write Action file
     $actionPath = $actionDir . "/" . $actionFile;
     file_put_contents($actionPath, $actionContent);
+    
+    $message = 'Semua files berhasil digenerate! SQL: database/' . $sqlFileName . ' | Page: pages/' . $direktori . '.php | Action: actions/pages/' . $direktori . '.php';
 
-    $_SESSION['message'] = 'Semua files berhasil digenerate! SQL: database/' . $sqlFileName . ' | Page: pages/' . $direktori . '.php | Action: actions/pages/' . $direktori . '.php';
+    // Generate & Write API file
+    if ($hasApi) {
+        $apiContent = generateApi($direktori, $tableName, $columns, $hasFileUpload, $hasPassword);
+        $apiPath = $apiDir . "/" . $apiFile;
+        file_put_contents($apiPath, $apiContent);
+        $message .= ' | API: api/endpoints/' . $direktori . '.php';
+    }
+
+    $_SESSION['message'] = $message;
     $_SESSION['message_type'] = 'success';
 
     echo "

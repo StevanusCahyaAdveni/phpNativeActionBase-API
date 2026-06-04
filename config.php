@@ -1,10 +1,4 @@
 <?php
-
-/**
- * Database Configuration
- * File ini berisi konfigurasi database dan koneksi yang aman
- */
-
 // Deteksi URL Lengkap
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['SERVER_PORT'] ?? 80) == 443) ? "https://" : "http://";
 $domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -23,7 +17,7 @@ if (strpos($fullUrl, 'example.com') !== false) {
     $dbHost = 'localhost';
     $dbUser = 'root';
     $dbPass = '';
-    $dbName = 'project_php_action_based';
+    $dbName = 'php_native_action';
 }
 
 // Definisikan konstanta agar kompatibel dengan kode lain
@@ -47,4 +41,7 @@ mysqli_set_charset($con, "utf8mb4");
 date_default_timezone_set('Asia/Jakarta');
 
 $appName = "Little PHP Framework";
+
+// Secret key untuk penandatanganan Custom JWT (REST API)
+define('JWT_SECRET', 'super_secret_key_change_me_in_production_123456');
 ?>

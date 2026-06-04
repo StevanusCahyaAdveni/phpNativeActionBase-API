@@ -12,7 +12,7 @@
  * @param int $jumlahLimit Jumlah data per halaman
  * @return array ['data' => hasil query, 'total_pages' => total halaman, 'current_page' => halaman saat ini]
  */
-function makePagination($con, $query, $jumlahLimit = 10)
+function makePagination($con, $query, $params = [], $types = '', $jumlahLimit = 10)
 {
     // Get current page from URL
     $currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -20,7 +20,7 @@ function makePagination($con, $query, $jumlahLimit = 10)
 
     // Hitung total data menggunakan querySecure
     $countQuery = "SELECT COUNT(*) as total FROM ($query) as count_table";
-    $countResult = querySecure($con, $countQuery);
+    $countResult = querySecure($con, $countQuery, $params, $types);
     $totalData = 0;
 
     if ($countResult) {
@@ -41,7 +41,13 @@ function makePagination($con, $query, $jumlahLimit = 10)
 
     // Query dengan LIMIT menggunakan prepared statement
     $limitedQuery = "$query LIMIT ? OFFSET ?";
-    $result = querySecure($con, $limitedQuery, [$jumlahLimit, $offset], 'ii');
+    
+    $limitParams = $params;
+    $limitParams[] = $jumlahLimit;
+    $limitParams[] = $offset;
+    $limitTypes = $types . 'ii';
+    
+    $result = querySecure($con, $limitedQuery, $limitParams, $limitTypes);
 
     // Simpan data ke array
     $data = [];
@@ -226,7 +232,7 @@ include 'functions/pagination.php';
 $query = "SELECT * FROM users WHERE status = 'active' ORDER BY created_at DESC";
 
 // 3. Gunakan fungsi makePagination
-$pagination = makePagination($con, $query, 10); // 10 data per halaman
+$pagination = makePagination($con, $query, [], '', 10); // 10 data per halaman
 
 // 4. Tampilkan data dalam tabel
 ?>
@@ -282,7 +288,7 @@ $query = "SELECT u.*, r.role_name
           WHERE u.deleted_at IS NULL 
           ORDER BY u.created_at DESC";
 
-$pagination = makePagination($con, $query, 15);
+$pagination = makePagination($con, $query, [], '', 15);
 
 // Akses data
 foreach($pagination['data'] as $user) {
@@ -298,15 +304,20 @@ $search = isset($_GET['search']) ? mysqli_real_escape_string($con, $_GET['search
 
 // Query dengan kondisi search
 if (!empty($search)) {
+    $searchParam = "%$search%";
     $query = "SELECT * FROM users 
-              WHERE (name LIKE '%$search%' OR email LIKE '%$search%') 
+              WHERE (name LIKE ? OR email LIKE ?) 
               AND deleted_at IS NULL 
               ORDER BY created_at DESC";
+    $params = [$searchParam, $searchParam];
+    $types = 'ss';
 } else {
     $query = "SELECT * FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC";
+    $params = [];
+    $types = '';
 }
 
-$pagination = makePagination($con, $query, 20);
+$pagination = makePagination($con, $query, $params, $types, 20);
 
 // Tampilkan dengan form search
 ?>

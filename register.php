@@ -1,3 +1,8 @@
+<?php 
+if(session_status() === PHP_SESSION_NONE) session_start();
+include 'functions/csrf.php'; 
+ob_start('csrf_auto_inject'); 
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -93,7 +98,6 @@
                     </div>
                     <div class="register-body">
                         <?php
-                        session_start();
                         if (isset($_SESSION['message'])): ?>
                             <div class="alert alert-<?= $_SESSION['message_type'] == 'success' ? 'success' : 'danger' ?> alert-dismissible fade show">
                                 <?= $_SESSION['message'] ?>

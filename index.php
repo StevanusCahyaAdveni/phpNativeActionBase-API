@@ -6,6 +6,10 @@ include 'functions/secure_query.php';
 include 'functions/redirect.php';
 include 'functions/auto-routing.php';
 include 'functions/auto-cek-login-html.php';
+include 'functions/csrf.php';
+
+// Mulai Output Buffering dengan callback auto-inject CSRF
+ob_start('csrf_auto_inject');
 ?>
 
 <!DOCTYPE html>

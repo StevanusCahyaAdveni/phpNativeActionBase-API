@@ -7,7 +7,7 @@ function sani($data)
     if (is_string($data)) {
         $data = trim($data);
         $data = stripslashes($data);
-        $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+        $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8', false);
         return $data;
     }
     return $data;

@@ -1,1 +1,1 @@
-CREATE TABLE `project_php_action_based`.`logs` (`id` INT NOT NULL AUTO_INCREMENT , `user` VARCHAR(100) NOT NULL , `description` TEXT NOT NULL , `ip_address` VARCHAR(20) NOT NULL , `timestamp` DATETIME NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB;
+CREATE TABLE IF NOT EXISTS `logs` (`id` INT NOT NULL AUTO_INCREMENT , `user` VARCHAR(100) NOT NULL , `description` TEXT NOT NULL , `ip_address` VARCHAR(20) NOT NULL , `timestamp` DATETIME NOT NULL , PRIMARY KEY (`id`)) ENGINE = InnoDB;

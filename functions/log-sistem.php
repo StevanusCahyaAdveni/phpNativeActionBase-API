@@ -14,9 +14,6 @@
         
         $timestamp = date('Y-m-d H:i:s');
         $query = "INSERT INTO logs (user, description, ip_address, timestamp) VALUES (?, ?, ?, ?)";
-        $stmt = mysqli_prepare($con, $query);
-        mysqli_stmt_bind_param($stmt, 'ssss', $user, $description, $UserIp, $timestamp);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        executeSecure($con, $query, [$user, $description, $UserIp, $timestamp], 'ssss');
     }
 ?>
