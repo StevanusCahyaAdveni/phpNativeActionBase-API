@@ -8,7 +8,24 @@ include 'functions/auto-routing.php';
 include 'functions/auto-cek-login-html.php';
 include 'functions/csrf.php';
 
-// Mulai Output Buffering dengan callback auto-inject CSRF
+// Deteksi Request AJAX dari SPA Engine
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+
+if ($isAjax) {
+    ob_end_clean(); // Bersihkan buffer utama
+    ob_start('csrf_auto_inject'); // Mulai buffer baru untuk injeksi CSRF
+    include $content;
+    $htmlContent = ob_get_clean();
+    
+    header('Content-Type: application/json');
+    echo json_encode([
+        'title' => $textTitle,
+        'html' => $htmlContent
+    ]);
+    exit;
+}
+
+// Mulai Output Buffering dengan callback auto-inject CSRF untuk request normal
 ob_start('csrf_auto_inject');
 ?>
 
@@ -29,6 +46,10 @@ ob_start('csrf_auto_inject');
     <link rel="stylesheet" href="assets/vendors/perfect-scrollbar/perfect-scrollbar.css">
     <link rel="stylesheet" href="assets/vendors/bootstrap-icons/bootstrap-icons.css">
     <link rel="stylesheet" href="assets/css/app.css">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+    
     <link rel="shortcut icon" href="assets/images/favicon.svg" type="image/x-icon">
 </head>
 
@@ -63,7 +84,20 @@ ob_start('csrf_auto_inject');
         </div>
     </div>
 
+    <!-- Bootstrap Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="spaToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="spaToastMessage">
+                    Message here
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
     <!-- Template Script -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="assets/vendors/perfect-scrollbar/perfect-scrollbar.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
 
@@ -71,9 +105,15 @@ ob_start('csrf_auto_inject');
     <script src="assets/js/pages/dashboard.js"></script>
 
     <script src="assets/js/main.js"></script>
+    
+    <!-- DataTables & SweetAlert2 -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Custom Framework -->
     <script src="assets/js/upImage.js"></script>
+    <script src="assets/js/spa.js"></script>
 </body>
 
 </html>
