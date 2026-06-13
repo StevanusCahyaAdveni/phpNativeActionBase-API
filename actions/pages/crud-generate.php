@@ -14,14 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validasi
     if (empty($direktori) || empty($tableName) || empty($columns)) {
-        $_SESSION['message'] = 'Semua field harus diisi!';
-        $_SESSION['message_type'] = 'error';
-        echo "
-            <script>
-                window.location.href = '../?hal=crud_generate';
-            </script>
-        ";
-        exit;
+        redirectWithMessage('../?hal=crud-generate', 'Semua field harus diisi!', 'error');
     }
 
     // Function to generate SQL
@@ -129,9 +122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $routeName = str_replace('/', '_', $direktori);
 
         $page = "<?php\n";
-        $page .= "include 'functions/pagination.php';\n";
-        $page .= "\$query = \"SELECT * FROM $tableName\";\n";
-        $page .= "\$pagination = makePagination(\$con, \$query, 10);\n";
+        
+        if (isset($_POST['has_timestamps'])) {
+            $page .= "\$query = \"SELECT * FROM $tableName ORDER BY created_at DESC\";\n";
+        } else {
+            $page .= "\$query = \"SELECT * FROM $tableName ORDER BY id DESC\";\n";
+        }
+        
+        $page .= "\$result = querySecure(\$con, \$query, [], '');\n";
         $page .= "?>\n\n";
 
         $page .= "<!-- Alert Message -->\n";
@@ -152,25 +150,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "        </button>\n";
         $page .= "    </p>\n";
         $page .= "    <section class=\"section\">\n";
-        $page .= "        <!-- Search Form -->\n";
-        $page .= "        <div class=\"card p-2 mb-1 shadow-sm\">\n";
-        $page .= "            <form method=\"GET\" action=\"\">\n";
-        $page .= "                <input type=\"hidden\" name=\"hal\" value=\"$routeName\">\n";
-        $page .= "                <div class=\"row g-1\">\n";
-        $page .= "                    <div class=\"col-10\">\n";
-        $page .= "                        <input type=\"text\" class=\"form-control form-control-sm\" name=\"search\" placeholder=\"Search...\" value=\"<?= \$_GET['search'] ?? '' ?>\">\n";
-        $page .= "                    </div>\n";
-        $page .= "                    <div class=\"col-2\">\n";
-        $page .= "                        <button type=\"submit\" class=\"btn btn-sm btn-primary w-100\"><i class=\"bi bi-search\"></i></button>\n";
-        $page .= "                    </div>\n";
-        $page .= "                </div>\n";
-        $page .= "            </form>\n";
-        $page .= "        </div>\n\n";
 
         $page .= "        <!-- Data Table -->\n";
         $page .= "        <div class=\"card p-2 mb-1 shadow-sm\">\n";
         $page .= "            <div class=\"table-responsive\">\n";
-        $page .= "                <table class=\"table table-sm table-hover table-striped\" style=\"font-size: 12px;\">\n";
+        $page .= "                <table class=\"table table-sm table-hover table-striped datatable\" style=\"font-size: 12px;\">\n";
         $page .= "                    <thead>\n";
         $page .= "                        <tr>\n";
         $page .= "                            <th>No</th>\n";
@@ -186,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                    <tbody>\n";
         $page .= "                        <?php\n";
         $page .= "                        \$no = 1;\n";
-        $page .= "                        foreach (\$pagination['data'] as \$row): ?>\n";
+        $page .= "                        while (\$row = mysqli_fetch_assoc(\$result)): ?>\n";
         $page .= "                            <tr class=\"pt-1 pb-1\">\n";
         $page .= "                                <td><?= \$no++ ?></td>\n";
         foreach ($columns as $column) {
@@ -226,17 +210,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                                    )\">\n";
         $page .= "                                        <i class=\"bi bi-pencil\"></i>\n";
         $page .= "                                    </button>\n";
-        $page .= "                                    <a href=\"actions/?hal=$routeName&delete=<?= \$row['id'] ?>\" class=\"btn btn-sm btn-danger\" onclick=\"return confirm('Are you sure?')\">\n";
+        $page .= "                                    <a href=\"actions/?hal=$routeName&delete=<?= \$row['id'] ?>\" class=\"btn btn-sm btn-danger delete-btn\">\n";
         $page .= "                                        <i class=\"bi bi-trash\"></i>\n";
         $page .= "                                    </a>\n";
         $page .= "                                </td>\n";
         $page .= "                            </tr>\n";
-        $page .= "                        <?php endforeach; ?>\n";
+        $page .= "                        <?php endwhile; ?>\n";
         $page .= "                    </tbody>\n";
         $page .= "                </table>\n";
         $page .= "            </div>\n";
-        $page .= "            <!-- Pagination -->\n";
-        $page .= "            <?= showPagination(\$pagination['total_pages'], \$pagination['current_page']); ?>\n";
+        $page .= "            </div>\n";
         $page .= "        </div>\n";
         $page .= "    </section>\n";
         $page .= "</div>\n\n";
@@ -250,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                <h5 class=\"modal-title\">Add New " . ucfirst($featureName) . "</h5>\n";
         $page .= "                <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>\n";
         $page .= "            </div>\n";
-        $page .= "            <form action=\"actions/?hal=$routeName\" method=\"POST\"" . ($hasFileUpload ? " enctype=\"multipart/form-data\"" : "") . ">\n";
+        $page .= "            <form action=\"actions/?hal=$routeName\" method=\"POST\" class=\"ajax-form\"" . ($hasFileUpload ? " enctype=\"multipart/form-data\"" : "") . ">\n";
         $page .= "                <div class=\"modal-body\">\n";
 
         foreach ($columns as $column) {
@@ -303,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                <h5 class=\"modal-title\">Edit " . ucfirst($featureName) . "</h5>\n";
         $page .= "                <button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>\n";
         $page .= "            </div>\n";
-        $page .= "            <form action=\"actions/?hal=$routeName\" method=\"POST\"" . ($hasFileUpload ? " enctype=\"multipart/form-data\"" : "") . ">\n";
+        $page .= "            <form action=\"actions/?hal=$routeName\" method=\"POST\" class=\"ajax-form\"" . ($hasFileUpload ? " enctype=\"multipart/form-data\"" : "") . ">\n";
         $page .= "                <div class=\"modal-body\">\n";
         $page .= "                    <input type=\"hidden\" name=\"id\" id=\"edit_id\">\n";
 
@@ -450,17 +433,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action .= "        \$types = '$insertTypes';\n";
         $action .= "        \$insertResult = executeSecure(\$con, \$query, \$params, \$types);\n\n";
         $action .= "        if (\$insertResult) {\n";
-        $action .= "            \$_SESSION['message'] = 'Data berhasil ditambahkan!';\n";
-        $action .= "            \$_SESSION['message_type'] = 'success';\n";
+        $action .= "            redirectWithMessage('../?hal=$routeName', 'Data berhasil ditambahkan!', 'success');\n";
         $action .= "        } else {\n";
-        $action .= "            \$_SESSION['message'] = 'Terjadi kesalahan saat menambahkan data.';\n";
-        $action .= "            \$_SESSION['message_type'] = 'error';\n";
+        $action .= "            redirectWithMessage('../?hal=$routeName', 'Terjadi kesalahan saat menambahkan data.', 'error');\n";
         $action .= "        }\n";
-        $action .= "        echo \"\n";
-        $action .= "            <script>\n";
-        $action .= "                window.location.href = '../?hal=$routeName';\n";
-        $action .= "            </script>\n";
-        $action .= "        \";\n";
         $action .= "    }\n\n";
 
         // UPDATE
@@ -542,17 +518,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action .= "        \$types = '$updateTypes';\n";
         $action .= "        \$updateResult = executeSecure(\$con, \$query, \$params, \$types);\n\n";
         $action .= "        if (\$updateResult) {\n";
-        $action .= "            \$_SESSION['message'] = 'Data berhasil diperbarui!';\n";
-        $action .= "            \$_SESSION['message_type'] = 'success';\n";
+        $action .= "            redirectWithMessage('../?hal=$routeName', 'Data berhasil diperbarui!', 'success');\n";
         $action .= "        } else {\n";
-        $action .= "            \$_SESSION['message'] = 'Terjadi kesalahan saat memperbarui data.';\n";
-        $action .= "            \$_SESSION['message_type'] = 'error';\n";
+        $action .= "            redirectWithMessage('../?hal=$routeName', 'Terjadi kesalahan saat memperbarui data.', 'error');\n";
         $action .= "        }\n";
-        $action .= "        echo \"\n";
-        $action .= "            <script>\n";
-        $action .= "                window.location.href = '../?hal=$routeName';\n";
-        $action .= "            </script>\n";
-        $action .= "        \";\n";
         $action .= "    }\n";
         $action .= "    exit;\n";
         $action .= "} elseif (isset(\$_GET['delete'])) {\n";
@@ -578,17 +547,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action .= "        }\n";
         }
 
-        $action .= "        \$_SESSION['message'] = 'Data berhasil dihapus!';\n";
-        $action .= "        \$_SESSION['message_type'] = 'success';\n";
+        $action .= "        redirectWithMessage('../?hal=$routeName', 'Data berhasil dihapus!', 'success');\n";
         $action .= "    } else {\n";
-        $action .= "        \$_SESSION['message'] = 'Terjadi kesalahan saat menghapus data.';\n";
-        $action .= "        \$_SESSION['message_type'] = 'error';\n";
+        $action .= "        redirectWithMessage('../?hal=$routeName', 'Terjadi kesalahan saat menghapus data.', 'error');\n";
         $action .= "    }\n";
-        $action .= "    echo \"\n";
-        $action .= "            <script>\n";
-        $action .= "                window.location.href = '../?hal=$routeName';\n";
-        $action .= "            </script>\n";
-        $action .= "        \";\n";
         $action .= "    exit;\n";
         $action .= "} else {\n";
         $action .= "    // If accessed directly, redirect to homepage\n";
@@ -822,15 +784,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message .= ' | API: api/endpoints/' . $direktori . '.php';
     }
 
-    $_SESSION['message'] = $message;
-    $_SESSION['message_type'] = 'success';
-
-    echo "
-        <script>
-            window.location.href = '../?hal=crud-generate';
-        </script>
-    ";
-    exit;
+    redirectWithMessage('../?hal=crud-generate', $message, 'success');
 } else {
     header('Location: ../../index.php');
     exit;
