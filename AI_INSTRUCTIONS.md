@@ -4,13 +4,12 @@
 
 Anda sedang bekerja dengan PHP native framework yang menggunakan:
 - **Routing otomatis**: URL dengan underscore → file dengan slash (`users_user-management` → `pages/users/user-management.php`)
-- **Action-based pattern**: Setiap view punya mirror action handler di `actions/pages/`. Action **TIDAK PERNAH DI-INCLUDE**, ia murni bekerja sebagai HTTP Endpoint yang di-HIT dari form HTML dan kemudian me-redirect kembali ke View.
+- **SPA No-Load Architecture (PJAX)**: Sistem navigasi mulus tanpa reload halaman (`spa.js`). Form menggunakan `class="ajax-form"` dan divalidasi dengan JSON response.
+- **Action-based pattern**: Setiap view punya mirror action handler di `actions/pages/`. Action **TIDAK PERNAH DI-INCLUDE**, ia murni bekerja sebagai HTTP Endpoint yang di-HIT dari form HTML (via AJAX) dan me-redirect/merespons menggunakan JSON.
 - **Security-first**: Semua query menggunakan prepared statements, semua input di-sanitasi, dan ada CSRF Auto-Injection via Output Buffering.
-- **UUID primary keys**: Tidak ada auto-increment integer, semua ID adalah UUID v4 (menggunakan `random_bytes()`).
+- **DataTables Native**: Pengurutan, pencarian, dan paginasi data 100% bergantung pada DataTables di client-side. Tidak ada lagi pencarian manual menggunakan query string PHP.
+- **UUID primary keys**: Tidak ada auto-increment integer, semua ID adalah UUID v4.
 - **Session + localStorage hybrid auth**: Session untuk security, localStorage untuk convenience
-- **Modular auto-login**: Auto-login menggunakan API endpoint terpisah (loginauto.php)
-- **Variable-based routing**: Menggunakan variable $content untuk include pages
-- **Dynamic DB Configuration**: Deteksi URL otomatis ($fullUrl) untuk memisahkan koneksi database Lokal vs Server di config.php
 - **Database Migration**: Sistem eksekusi SQL otomatis via terminal (`php migrate.php` & `php generate.php -m`).
 
 ---
@@ -325,71 +324,68 @@ CREATE TABLE users (
 
 ```php
 <?php
-// Get search parameter
-$search = isset($_GET['search']) ? sani($_GET['search']) : '';
-
-// Build query (pattern aktual di pages/users/user-management.php)
-$whereClause = '';
-
-if (!empty($search)) {
-    $search = '%' . $search . '%';
-    $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
-}
-
-$query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
-$pagination = makePagination($con, $query, 10);
+// Build query (No pagination/search manually. Let DataTables do it)
+$query = "SELECT * FROM users ORDER BY id DESC";
+$result = querySecure($con, $query, [], '');
 ?>
 
-<!-- Alert messages -->
-<?= showAlert(); ?>
-
 <!-- Button add new -->
-<button data-bs-toggle="modal" data-bs-target="#addModal">Add New</button>
+<button data-bs-toggle="modal" data-bs-target="#addModal" class="btn btn-primary mb-3">Add New</button>
 
-<!-- Search form -->
-<form method="get">
-    <input type="hidden" name="hal" value="module_feature">
-    <input type="text" name="search" value="<?= $search ?>">
-    <button type="submit">Search</button>
-</form>
-
-<!-- Data table -->
-<table>
-    <?php foreach ($pagination['data'] as $row): ?>
-        <tr>
-            <td><?= $row['name'] ?></td>
-            <td>
-                <button onclick="editData('<?= $row['id'] ?>')">Edit</button>
-                <a href="actions/?hal=module_feature&delete=<?= $row['id'] ?>" 
-                   onclick="return confirm('Sure?')">Delete</a>
-            </td>
-        </tr>
-    <?php endwhile; ?>
-</table>
-
-<!-- Pagination -->
-<?= showPagination($pagination['total_pages'], $pagination['current_page']); ?>
-
-<!-- Modal Add -->
-<div class="modal" id="addModal">
-    <form action="actions/?hal=module_feature" method="POST" enctype="multipart/form-data">
-        <input type="text" name="name" required>
-        <input type="email" name="email" required>
-        <input type="file" name="photo">
-        <button type="submit" name="addData">Save</button>
-    </form>
+<!-- Data table with class 'datatable' for auto-initialization -->
+<div class="table-responsive">
+    <table class="table table-striped datatable">
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>Name</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            $no = 1;
+            foreach ($result as $row): 
+            ?>
+                <tr>
+                    <td><?= $no++ ?></td>
+                    <td><?= $row['name'] ?></td>
+                    <td>
+                        <button onclick="editData('<?= $row['id'] ?>')" class="btn btn-sm btn-warning">Edit</button>
+                        <!-- Hapus dengan class delete-btn untuk SweetAlert2 -->
+                        <a href="actions/?hal=module_feature&delete=<?= $row['id'] ?>" class="btn btn-sm btn-danger delete-btn">Delete</a>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
 </div>
 
-<!-- Modal Edit -->
-<div class="modal" id="editModal">
-    <form action="actions/?hal=module_feature" method="POST" enctype="multipart/form-data">
-        <input type="hidden" name="id" id="edit_id">
-        <input type="hidden" name="photo_old" id="edit_photo_old">
-        <input type="text" name="name" id="edit_name" required>
-        <input type="email" name="email" id="edit_email" required>
-        <input type="file" name="photo">
-        <button type="submit" name="updateData">Update</button>
-    </form>
+<!-- Modal Add (Form MUST have class="ajax-form") -->
+<div class="modal fade" id="addModal">
+    <div class="modal-dialog">
+        <form action="actions/?hal=module_feature" method="POST" enctype="multipart/form-data" class="ajax-form">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" name="name" class="form-control" required>
+                    <input type="email" name="email" class="form-control mt-2" required>
+                    <input type="file" name="photo" class="form-control mt-2">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" name="addData" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Edit (Form MUST have class="ajax-form") -->
+<div class="modal fade" id="editModal">
+    <!-- Same structure as Add Modal, but with name="updateData" on button -->
 </div>
 
 <script>
@@ -456,15 +452,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         
         if ($insertResult) {
-            $_SESSION['message'] = 'Data successfully added!';
-            $_SESSION['message_type'] = 'success';
+            redirectWithMessage('../?hal=module_feature', 'Data successfully added!', 'success');
         } else {
-            $_SESSION['message'] = 'Failed to add data!';
-            $_SESSION['message_type'] = 'error';
+            redirectWithMessage('../?hal=module_feature', 'Failed to add data!', 'error');
         }
-        
-        header('Location: ' . $rootPath . 'index.php?hal=module_feature');
-        exit;
     }
     
     // ========== UPDATE ==========
@@ -503,15 +494,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         
         if ($updateResult) {
-            $_SESSION['message'] = 'Data successfully updated!';
-            $_SESSION['message_type'] = 'success';
+            redirectWithMessage('../?hal=module_feature', 'Data successfully updated!', 'success');
         } else {
-            $_SESSION['message'] = 'Failed to update data!';
-            $_SESSION['message_type'] = 'error';
+            redirectWithMessage('../?hal=module_feature', 'Failed to update data!', 'error');
         }
-        
-        header('Location: ' . $rootPath . 'index.php?hal=module_feature');
-        exit;
     }
     
 } 
@@ -532,16 +518,10 @@ elseif (isset($_GET['delete'])) {
             unlink($rootPath . $data['photo']);
         }
         
-        $_SESSION['message'] = 'Data successfully deleted!';
-        $_SESSION['message_type'] = 'success';
+        redirectWithMessage('../?hal=module_feature', 'Data successfully deleted!', 'success');
     } else {
-        $_SESSION['message'] = 'Failed to delete data!';
-        $_SESSION['message_type'] = 'error';
+        redirectWithMessage('../?hal=module_feature', 'Failed to delete data!', 'error');
     }
-    
-    header('Location: ' . $rootPath . 'index.php?hal=module_feature');
-    exit;
-}
 // ========== Invalid Request ==========
 else {
     header('Location: ' . $rootPath . 'index.php');
@@ -605,50 +585,27 @@ if (isset($_FILES['photo']) &&
 
 ---
 
-## 🔄 Pagination Pattern
+## 🔄 Pagination & Table Pattern
 
-**ALWAYS gunakan makePagination():**
-```php
-// Get parameters
-$search = isset($_GET['search']) ? sani($_GET['search']) : '';
+**ALWAYS gunakan DataTables Native:**
+Jangan lagi menggunakan fungsi manual `makePagination()` atau form pencarian manual di PHP. Biarkan DataTables di Client-Side yang mengurus semuanya.
 
-// Build WHERE clause
-$whereClause = '';
-
-if (!empty($search)) {
-    $search = '%' . $search . '%';
-    $whereClause = " AND (fullname LIKE '$search' OR username LIKE '$search' OR email LIKE '$search')";
-}
-
-// Build query
-$query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
-
-// Get paginated data
-$pagination = makePagination($con, $query, 10);
-
-// Display data
-foreach ($pagination['data'] as $row) {
-    // Display row
-}
-
-// Display pagination links
-echo showPagination($pagination['total_pages'], $pagination['current_page']);
-```
+1. Selalu tambahkan class `datatable` pada tag `<table>`.
+2. Selalu bungkus table di dalam `<div class="table-responsive">`.
+3. Gunakan loop `foreach ($result as $row)` standar untuk me-render semua data. DataTables akan merender UI tabelnya di `spa.js`.
+4. Hapus form pencarian `GET` dan link paginasi manual.
 
 ## 🔔 Redirect & Alert Pattern
 
-**ALWAYS gunakan helper di `functions/redirect.php`:**
+**ALWAYS gunakan fungsi `redirectWithMessage()` di Controller/Action:**
 
 ```php
-// Action handler: set message + redirect
+// Action handler: Akan otomatis dideteksi SPA engine dan me-render Bootstrap Toast di frontend
 redirectWithMessage('../?hal=users_user-management', 'Data berhasil ditambahkan!', 'success');
 redirectWithMessage('../?hal=users_user-management', 'Terjadi kesalahan.', 'error');
 ```
 
-```php
-// View file: tampilkan alert dari session (otomatis unset)
-echo showAlert();
-```
+**Penting:** Tidak perlu lagi memanggil `showAlert()` di view PHP. SPA JS akan mengurus memunculkan Toast hijau atau merah secara mandiri dari response AJAX ini.
 
 ---
 
@@ -680,16 +637,16 @@ php generate.php module_feature
 - [ ] Add menu item di `sidebar.php`
 
 ### ✅ View File (pages/)
-- [ ] Add search form dengan parameter `hal`
-- [ ] Implement makePagination() sesuai pattern real: `makePagination($con, $query, 10)`
+- [ ] No manual search box, rely on DataTables.
+- [ ] Use `class="datatable"` for tables.
 - [ ] Create modal add dengan action ke `actions/?hal=...`
-- [ ] Create modal edit dengan action ke `actions/?hal=...`
-- [ ] Add delete link ke `actions/?hal=...&delete=id`
-- [ ] Display alert dengan `showAlert()`
-- [ ] Use `showPagination($pagination['total_pages'], $pagination['current_page'])`
+- [ ] Modal form MUST have `class="ajax-form"` for SPA integration.
+- [ ] Add delete link dengan class `delete-btn` ke `actions/?hal=...&delete=id`
+- [ ] No manual pagination code in PHP.
 
 ### ✅ Action File (actions/pages/)
 - [ ] Calculate correct relative path depth
+- [ ] ALWAYS use `redirectWithMessage()` instead of `echo <script>` or raw headers.
 - [ ] Include all required functions (sanitasi, secure_query, upload_file, etc)
 - [ ] Implement CREATE dengan generate_uuid()
 - [ ] Implement UPDATE dengan file handling (keep old if no new)
