@@ -23,7 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validate_csrf_token($token)) {
         // Token tidak valid atau tidak ada
         createLog($con, 'SYSTEM', 'Peringatan: Upaya CSRF dicegah dari IP ' . ($_SERVER['REMOTE_ADDR'] ?? 'Unknown'));
-        redirectWithMessage('../?hal=dashboard', 'Aksi dibatalkan: Token Keamanan (CSRF) tidak valid atau kadaluarsa. Silakan muat ulang halaman.', 'error');
+        
+        // redirectWithMessage('../?hal=dashboard', 'Aksi dibatalkan: Token Keamanan (CSRF) tidak valid atau kadaluarsa. Silakan muat ulang halaman.', 'error');
     }
 }
 
