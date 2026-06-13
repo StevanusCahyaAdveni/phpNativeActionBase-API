@@ -106,7 +106,7 @@ ob_start('csrf_auto_inject');
                             <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
                         <?php endif; ?>
 
-                        <form action="actions/register.php" method="POST" id="registerForm">
+                        <form action="actions/register.php" method="POST" id="registerForm" class="ajax-form">
                             <div class="mb-3">
                                 <label for="fullname" class="form-label">
                                     Full Name
@@ -270,21 +270,41 @@ ob_start('csrf_auto_inject');
 
             if (password !== confirmPassword) {
                 e.preventDefault();
-                alert('Passwords do not match!');
+                e.stopImmediatePropagation();
+                if (typeof showToast !== 'undefined') showToast('Passwords do not match!', 'error');
+                else alert('Passwords do not match!');
                 return false;
             }
 
             if (password.length < 6) {
                 e.preventDefault();
-                alert('Password must be at least 6 characters!');
+                e.stopImmediatePropagation();
+                if (typeof showToast !== 'undefined') showToast('Password must be at least 6 characters!', 'error');
+                else alert('Password must be at least 6 characters!');
                 return false;
             }
         });
     </script>
 
+    <!-- Bootstrap Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="spaToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="spaToastMessage">
+                    Message here
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="assets/vendors/perfect-scrollbar/perfect-scrollbar.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/main.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/js/spa.js"></script>
 </body>
 
 </html>
