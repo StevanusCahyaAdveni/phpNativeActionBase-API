@@ -7,10 +7,13 @@ Framework PHP native sederhana dengan sistem routing otomatis, autentikasi berba
 ## ✨ Update Terbaru
 
 ### 🚀 Core Upgrades & Security (Terbaru)
+- **SPA No-Load Architecture (PJAX)**: Sistem navigasi mulus tanpa reload halaman (`spa.js`). Form menggunakan AJAX interception (`class="ajax-form"`) dan JSON response.
+- **DataTables Native**: Paginasi manual PHP dan kotak pencarian bawaan dirombak 100% menggunakan DataTables untuk sorting, searching, dan paginasi yang dinamis di klien.
+- **Seamless CRUD & Toast**: Redirect dari *backend action* sekarang mengirim JSON melalui fungsi `redirectWithMessage()` yang dibaca oleh `spa.js` untuk merender Toast Notification Bootstrap secara instan tanpa mengganggu halaman pengguna. Konfirmasi Hapus kini menggunakan *SweetAlert2*.
+- **CRUD Generator SPA Ready**: Generator (`actions/pages/crud-generate.php`) sudah dikalibrasi ulang untuk menyertakan `class="ajax-form"`, Datatable classes, format file migrasi yang mendetail (`datetime-namatable.sql`), dan *JSON redirects*.
 - **CSRF Auto-Injection**: Perlindungan Cross-Site Request Forgery menyeluruh via *Output Buffering* tanpa perlu menambahkan token manual di tiap form HTML. Validasi dipusatkan di `actions/index.php`.
 - **Database Migration System**: Sistem eksekusi file SQL otomatis untuk CI/CD dengan tabel pencatat (`migrations`) menggunakan `php migrate.php`. Generate file migrasi dengan `php generate.php -m`.
 - **Cryptographically Secure UUID**: Peningkatan keamanan UUID v4 secara mutlak menggunakan fungsi `random_bytes()`.
-- **PDO-Style Pagination**: Fungsi `makePagination` sekarang didesain ulang agar menerima parameter `$params` dan `$types` (menggunakan *prepared statements*), sehingga query pencarian (Search) di paginasi 100% aman dari SQL Injection.
 - **DRY & Security Refactoring**: Fungsi `log-sistem.php` sekarang memanfaatkan `executeSecure()`. Sanitasi di `sanitasi.php` menggunakan `double_encode = false` agar lebih tangguh menangkal injeksi teks yang memuat entitas HTML.
 
 ### 🆕 Fitur Baru (Versi Sebelumnya)
