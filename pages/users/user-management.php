@@ -15,7 +15,7 @@
                     <h1 class="modal-title fs-5" id="staticBackdropLabel">Tambah User</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form action="actions/?hal=users_user-management" method="post" enctype="multipart/form-data">
+                <form action="actions/?hal=users_user-management" method="post" enctype="multipart/form-data" class="ajax-form">
                     <div class="modal-body">
                         <label for="">Nama Lengkap</label>
                         <input type="text" name="fullname" class="form-control form-control-sm mb-2" placeholder="Nama Lengkap" id="">
@@ -37,21 +37,8 @@
         </div>
     </div>
     <div class="card shadow p-2 mb-1">
-        <form method="get">
-            <input type="text" name="hal" hidden id="" value="<?= sani($_GET['hal'] ?? '') ?>">
-            <div class="row g-1">
-                <div class="col-9">
-                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Search..." value="<?php echo isset($_GET['search']) ? sani($_GET['search']) : ''; ?>">
-                </div>
-                <div class="col-3">
-                    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
-                </div>
-            </div>
-        </form>
-    </div>
-    <div class="card shadow p-2 mb-1">
         <div class="table-responsive">
-            <table class="table table-striped table-hover table-sm" id="table1" style="font-size: 12px;">
+            <table class="table table-striped table-hover table-sm datatable" id="table1" style="font-size: 12px;">
                 <thead>
                     <tr>
                         <th>No </th>
@@ -64,25 +51,10 @@
                 </thead>
                 <tbody>
                     <?php
-                    // include 'config.php';
                     $no = 1;
-                    // searching Mecanism
-                    $whereClause = '';
-                    $params = [];
-                    $types = '';
-
-                    if (isset($_GET['search']) && trim($_GET['search']) !== '') {
-                        $search = '%' . sani($_GET['search']) . '%';
-                        $whereClause = " AND (fullname LIKE ? OR username LIKE ? OR email LIKE ?)";
-                        $params = [$search, $search, $search];
-                        $types = 'sss';
-                    }
-
-                    $query = "SELECT * FROM users WHERE 1 = 1 " . $whereClause . " ORDER BY id DESC";
-
-                    $pagination = makePagination($con, $query, $params, $types, 10);
-                    // End searching Mecanism
-                    foreach ($pagination['data'] as $data) {
+                    $query = "SELECT * FROM users ORDER BY id DESC";
+                    $result = querySecure($con, $query, [], '');
+                    foreach($result as $data) {
                     ?>
                         <tr>
                             <td><?php echo $no++; ?></td>
@@ -99,7 +71,7 @@
                             <td>
                                 <button ctype="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editModal" onclick="upData('<?= $data['id'] ?>', '<?= $data['fullname'] ?>', '<?= $data['username'] ?>', '<?= $data['email'] ?>', '<?= $data['password'] ?>')"><i class="bi bi-pencil"></i></button>
                                 <?php if($data['id'] != $_SESSION['admin']['id']){?>
-                                    <a href="actions/?hal=users_user-management&deleteUser=<?= $data['id'] ?>" onclick="return confirm('Apakah yakin ingin menghapus user ini ?')" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></a>
+                                    <a href="actions/?hal=users_user-management&deleteUser=<?= $data['id'] ?>" class="btn btn-sm btn-danger delete-btn"><i class="bi bi-trash"></i></a>
                                 <?php }?>
                             </td>
                         </tr>
@@ -107,9 +79,6 @@
                 </tbody>
             </table>
         </div>
-    </div>
-    <div class="card shadow p-2">
-        <?= showPagination($pagination['total_pages'], $pagination['current_page']); ?>
     </div>
     <!-- Modal Edit -->
     <script>
@@ -128,7 +97,7 @@
                     <h1 class="modal-title fs-5" id="staticBackdropLabel">Modal title</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form action="actions/?hal=users_user-management" method="post" enctype="multipart/form-data">
+                <form action="actions/?hal=users_user-management" method="post" enctype="multipart/form-data" class="ajax-form">
                     <div class="modal-body">
                         <input type="text" name="id" id="id_id" hidden>
                         <label for="">Nama Lengkap</label>
