@@ -110,5 +110,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 } else {
     // If accessed directly, redirect to homepage
-    redirectWithMessage('../../index.php', 'Akses tidak valid.', 'error');
+    redirectWithMessage('../index.php', 'Akses tidak valid.', 'error');
 }
