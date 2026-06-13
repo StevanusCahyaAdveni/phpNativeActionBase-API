@@ -1,4 +1,4 @@
-<form action="actions/?hal=crud-generate" method="POST" id="crudForm">
+<form action="actions/?hal=crud-generate" method="POST" id="crudForm" class="ajax-form">
     <div class="card shadow-sm p-2 mb-1">
         <div class="row g-1">
             <div class="col-6">
