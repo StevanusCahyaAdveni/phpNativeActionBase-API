@@ -106,7 +106,7 @@ ob_start('csrf_auto_inject');
                             <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
                         <?php endif; ?>
 
-                        <form action="actions/login.php" method="POST" id="loginForm">
+                        <form action="actions/login.php" method="POST" id="loginForm" class="ajax-form">
                             <div class="mb-3">
                                 <label for="email" class="form-label">
                                     Email Address
@@ -239,6 +239,19 @@ ob_start('csrf_auto_inject');
         });
     </script>
 
+    <!-- Bootstrap Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="spaToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="spaToastMessage">
+                    Message here
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="assets/vendors/perfect-scrollbar/perfect-scrollbar.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
 
@@ -246,6 +259,9 @@ ob_start('csrf_auto_inject');
     <script src="assets/js/pages/dashboard.js"></script>
 
     <script src="assets/js/main.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="assets/js/spa.js"></script>
 </body>
 
 </html>
