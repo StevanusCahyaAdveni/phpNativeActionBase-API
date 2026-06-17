@@ -22,6 +22,8 @@ include '../functions/generate_uuid.php';
 include '../functions/jwt.php';
 include '../functions/api.php';
 include '../functions/pagination.php';
+include '../functions/rate_limit.php';
+include 'rate_limits_config.php';
 
 // Parse hal parameter
 $hal = isset($_GET['hal']) ? sani($_GET['hal']) : '';
@@ -54,6 +56,21 @@ if (!in_array($hal, $publicEndpoints)) {
     
     // Pass user payload to the endpoint via global variable
     $GLOBALS['api_user'] = $payload;
+}
+
+// -------------------------------------------------------------
+// Rate Limiting Middleware
+// -------------------------------------------------------------
+$identifier = isset($GLOBALS['api_user']['id']) ? $GLOBALS['api_user']['id'] : $_SERVER['REMOTE_ADDR'];
+
+// Tentukan limit dan window dari konfigurasi
+$limitConfig = isset($apiRateLimits[$hal]) ? $apiRateLimits[$hal] : $apiRateLimits['default'];
+$maxLimit = $limitConfig['limit'];
+$timeWindow = $limitConfig['window'];
+
+// Cek apakah diperbolehkan
+if (!checkApiRateLimit($con, $hal, $identifier, $maxLimit, $timeWindow)) {
+    apiResponseError('TOO_MANY_REQUESTS', 'Rate limit exceeded. Try again later.', null, 429);
 }
 
 // -------------------------------------------------------------

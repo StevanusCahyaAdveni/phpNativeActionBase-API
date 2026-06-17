@@ -130,8 +130,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $page = "<?php\n";
         $page .= "include 'functions/pagination.php';\n";
-        $page .= "\$query = \"SELECT * FROM $tableName\";\n";
-        $page .= "\$pagination = makePagination(\$con, \$query, 10);\n";
+        $page .= "\$search = isset(\$_GET['search']) ? sani(\$_GET['search']) : '';\n";
+        $page .= "\$whereClause = '';\n";
+        $page .= "\$params = [];\n";
+        $page .= "\$types = '';\n\n";
+        $page .= "if (!empty(\$search)) {\n";
+        $page .= "    \$searchPattern = '%' . \$search . '%';\n";
+        $searchCols = [];
+        foreach ($columns as $column) {
+            $searchCols[] = "{$column['name']} LIKE ?";
+        }
+        $page .= "    \$whereClause = \" AND (" . implode(" OR ", $searchCols) . ")\";\n";
+        $page .= "    for(\$i=0; \$i<" . count($columns) . "; \$i++) {\n";
+        $page .= "        \$params[] = \$searchPattern;\n";
+        $page .= "        \$types .= 's';\n";
+        $page .= "    }\n";
+        $page .= "}\n\n";
+        $page .= "\$query = \"SELECT * FROM $tableName WHERE 1 = 1 \" . \$whereClause . \" ORDER BY id DESC\";\n";
+        $page .= "\$pagination = makePagination(\$con, \$query, \$params, \$types, 10);\n";
         $page .= "?>\n\n";
 
         $page .= "<!-- Alert Message -->\n";
@@ -185,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                    </thead>\n";
         $page .= "                    <tbody>\n";
         $page .= "                        <?php\n";
-        $page .= "                        \$no = 1;\n";
+        $page .= "                        \$no = \$pagination['from'];\n";
         $page .= "                        foreach (\$pagination['data'] as \$row): ?>\n";
         $page .= "                            <tr class=\"pt-1 pb-1\">\n";
         $page .= "                                <td><?= \$no++ ?></td>\n";
@@ -236,7 +252,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $page .= "                </table>\n";
         $page .= "            </div>\n";
         $page .= "            <!-- Pagination -->\n";
-        $page .= "            <?= showPagination(\$pagination['total_pages'], \$pagination['current_page']); ?>\n";
+        $page .= "            <div class=\"d-flex justify-content-between align-items-center mt-3\">\n";
+        $page .= "                <?= showPaginationInfo(\$pagination); ?>\n";
+        $page .= "                <?= showPagination(\$pagination['total_pages'], \$pagination['current_page']); ?>\n";
+        $page .= "            </div>\n";
         $page .= "        </div>\n";
         $page .= "    </section>\n";
         $page .= "</div>\n\n";

@@ -65,7 +65,6 @@
                 <tbody>
                     <?php
                     // include 'config.php';
-                    $no = 1;
                     // searching Mecanism
                     $whereClause = '';
                     $params = [];
@@ -82,6 +81,7 @@
 
                     $pagination = makePagination($con, $query, $params, $types, 10);
                     // End searching Mecanism
+                    $no = $pagination['from'];
                     foreach ($pagination['data'] as $data) {
                     ?>
                         <tr>
@@ -109,7 +109,10 @@
         </div>
     </div>
     <div class="card shadow p-2">
-        <?= showPagination($pagination['total_pages'], $pagination['current_page']); ?>
+        <div class="d-flex justify-content-between align-items-center">
+            <?= showPaginationInfo($pagination); ?>
+            <?= showPagination($pagination['total_pages'], $pagination['current_page']); ?>
+        </div>
     </div>
     <!-- Modal Edit -->
     <script>
